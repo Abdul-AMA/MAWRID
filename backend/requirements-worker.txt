@@ -1,0 +1,10 @@
+# All API deps first
+-r requirements-api.txt
+
+# Heavy ML deps — worker only
+paddlepaddle==2.6.2
+paddleocr==2.7.3
+easyocr==1.7.2
+transformers==4.41.2
+torch==2.3.1
+sentencepiece==0.2.0

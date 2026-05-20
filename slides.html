@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MAWRID — OCR Comparison</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #111; color: #fff; height: 100vh; overflow: hidden; }
+.deck { width: 100%; height: 100vh; position: relative; }
+
+.slide { position: absolute; inset: 0; display: none; padding: 52px 72px; flex-direction: column; justify-content: center; }
+.slide.active { display: flex; }
+.slide-1 { background: linear-gradient(135deg, #080818 0%, #0d1b3e 100%); }
+.slide-2 { background: linear-gradient(135deg, #060d1a 0%, #0a1628 100%); }
+.slide-3 { background: linear-gradient(135deg, #060f08 0%, #0a1e0a 100%); }
+.slide-4 { background: linear-gradient(135deg, #160606 0%, #2a0a0a 100%); }
+.slide-5 { background: linear-gradient(135deg, #0a0818 0%, #140d2a 100%); }
+.slide-6 { background: linear-gradient(135deg, #06080e 0%, #0a1020 100%); }
+
+/* type */
+.eyebrow { font-size: .7rem; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: #475569; margin-bottom: 14px; }
+h1 { font-size: 2.8rem; font-weight: 800; line-height: 1.1; margin-bottom: 10px; }
+h2 { font-size: 1.9rem; font-weight: 700; margin-bottom: 24px; }
+h3 { font-size: .95rem; font-weight: 600; color: #7dd3fc; margin-bottom: 10px; letter-spacing: .5px; text-transform: uppercase; }
+.sub { font-size: 1.1rem; color: #94a3b8; }
+
+/* color tokens */
+.sky  { color: #38bdf8; }
+.grn  { color: #4ade80; }
+.yel  { color: #fbbf24; }
+.red  { color: #f87171; }
+.pur  { color: #c084fc; }
+.org  { color: #fb923c; }
+.dim  { color: #64748b; }
+
+/* layout */
+.row { display: flex; gap: 24px; }
+.col { flex: 1; }
+.col2 { flex: 2; }
+
+/* stat blocks */
+.stats { display: flex; gap: 40px; margin-top: 36px; }
+.stat-val { font-size: 2.8rem; font-weight: 800; }
+.stat-lbl { font-size: .72rem; color: #475569; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+
+/* engine cards */
+.cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 13px; }
+.card { background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.09); border-radius: 10px; padding: 14px 16px; }
+.card.best  { border-color: #4ade80; background: rgba(74,222,128,.07); }
+.card.gold  { border-color: #c084fc; background: rgba(192,132,252,.07); }
+.card-name { font-weight: 700; font-size: .95rem; margin-bottom: 3px; }
+.card-type { font-size: .68rem; color: #475569; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+.kv { display: flex; justify-content: space-between; font-size: .78rem; margin-bottom: 3px; }
+.kv-k { color: #94a3b8; }
+.kv-v { font-weight: 600; }
+.qbar-lbl { font-size: .68rem; margin-top: 9px; margin-bottom: 3px; }
+.qbar-bg { background: rgba(255,255,255,.1); border-radius: 3px; height: 5px; overflow: hidden; }
+.qbar-fill { height: 100%; border-radius: 3px; }
+
+/* bar charts */
+.bar-row { margin-bottom: 11px; }
+.bar-hd { display: flex; justify-content: space-between; font-size: .8rem; font-weight: 600; margin-bottom: 4px; }
+.bar-bg { background: rgba(255,255,255,.08); border-radius: 4px; height: 9px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 4px; }
+
+/* tables */
+.tbl { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.tbl th { text-align: left; padding: 9px 11px; font-size: .68rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #475569; border-bottom: 1px solid rgba(255,255,255,.07); }
+.tbl td { padding: 9px 11px; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: middle; }
+.tbl tr:last-child td { border-bottom: none; }
+.tbl tr.hi td { background: rgba(74,222,128,.05); }
+.tbl tr.gi td { background: rgba(192,132,252,.05); }
+
+/* badges */
+.badge { display: inline-block; font-size: .62rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 2px 7px; border-radius: 99px; }
+.b-crit { background: rgba(248,113,113,.2); color: #f87171; }
+.b-mod  { background: rgba(251,191,36,.2);  color: #fbbf24; }
+.b-min  { background: rgba(100,116,139,.2); color: #94a3b8; }
+.b-ok   { background: rgba(74,222,128,.2);  color: #4ade80; }
+
+/* callout */
+.box { border-radius: 9px; padding: 12px 16px; font-size: .85rem; line-height: 1.5; margin-top: 14px; }
+.box-grn { background: rgba(74,222,128,.08);  border-left: 3px solid #4ade80; }
+.box-yel { background: rgba(251,191,36,.08);  border-left: 3px solid #fbbf24; }
+.box-red { background: rgba(248,113,113,.08); border-left: 3px solid #f87171; }
+.box-sky { background: rgba(56,189,248,.08);  border-left: 3px solid #38bdf8; }
+
+/* nav */
+.nav { position: fixed; bottom: 26px; right: 32px; display: flex; align-items: center; gap: 14px; z-index: 99; }
+.btn { background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.13); color: #fff; border-radius: 7px; padding: 7px 18px; font-size: .82rem; font-weight: 600; cursor: pointer; }
+.btn:hover { background: rgba(255,255,255,.16); }
+.btn:disabled { opacity: .22; cursor: default; }
+.ctr { font-size: .78rem; color: #475569; min-width: 44px; text-align: center; }
+.dots { position: fixed; bottom: 34px; left: 50%; transform: translateX(-50%); display: flex; gap: 7px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,.18); cursor: pointer; transition: background .2s, transform .2s; }
+.dot.on { background: #38bdf8; transform: scale(1.35); }
+
+code { background: rgba(255,255,255,.08); color: #7dd3fc; padding: 1px 5px; border-radius: 3px; font-size: .88em; }
+</style>
+</head>
+<body>
+<div class="deck">
+
+<!-- ══════════════════════════════════ SLIDE 1 — TITLE -->
+<div class="slide slide-1 active">
+  <div class="eyebrow">MAWRID Research · Stage 1 of 5</div>
+  <h1><span class="sky">OCR Engine</span><br>Comparison</h1>
+  <p class="sub">Arabic Government Document Processing<br>Municipality of Gaza · May 2026</p>
+  <div class="stats">
+    <div><div class="stat-val sky">6</div><div class="stat-lbl">Engines tested</div></div>
+    <div><div class="stat-val grn">3</div><div class="stat-lbl">Doc types used</div></div>
+    <div><div class="stat-val yel">1/5</div><div class="stat-lbl">Pipeline stage</div></div>
+    <div><div class="stat-val pur">91</div><div class="stat-lbl">Doc types total</div></div>
+  </div>
+  <div class="box box-sky" style="margin-top:32px;max-width:640px;">
+    <strong class="sky">The challenge:</strong> Arabic is cursive + RTL + government scans are dense — standard OCR tools fail badly out of the box.
+  </div>
+</div>
+
+<!-- ══════════════════════════════════ SLIDE 2 — ALL ENGINES -->
+<div class="slide slide-2">
+  <div class="eyebrow">Stage 1 — OCR</div>
+  <h2>All <span class="sky">6 Engines</span> at a Glance</h2>
+  <div class="cards">
+
+    <div class="card">
+      <div class="card-name red">PaddleOCR</div>
+      <div class="card-type">Local · Free · Offline</div>
+      <div class="kv"><span class="kv-k">Latency</span><span class="kv-v">6.5 s</span></div>
+      <div class="kv"><span class="kv-k">Cost/doc</span><span class="kv-v grn">$0.00</span></div>
+      <div class="kv"><span class="kv-k">Offline</span><span class="kv-v grn">Yes</span></div>
+      <div class="qbar-lbl red">Quality 1 / 5</div>
+      <div class="qbar-bg"><div class="qbar-fill" style="width:20%;background:#f87171"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-name yel">EasyOCR</div>
+      <div class="card-type">Local · Free · Offline</div>
+      <div class="kv"><span class="kv-k">Latency</span><span class="kv-v">TBD</span></div>
+      <div class="kv"><span class="kv-k">Cost/doc</span><span class="kv-v grn">$0.00</span></div>
+      <div class="kv"><span class="kv-k">Offline</span><span class="kv-v grn">Yes</span></div>
+      <div class="qbar-lbl yel">Quality 2 / 5</div>
+      <div class="qbar-bg"><div class="qbar-fill" style="width:40%;background:#fbbf24"></div></div>
+    </div>
+
+    <div class="card best">
+      <div class="card-name grn">Llama 4 Scout 17B ✦</div>
+      <div class="card-type">API · Groq · Free tier</div>
+      <div class="kv"><span class="kv-k">Latency</span><span class="kv-v grn">2.7 s ⚡</span></div>
+      <div class="kv"><span class="kv-k">Cost/doc</span><span class="kv-v grn">~$0.00</span></div>
+      <div class="kv"><span class="kv-k">Offline</span><span class="kv-v red">No</span></div>
+      <div class="qbar-lbl grn">Quality 3.5 / 5</div>
+      <div class="qbar-bg"><div class="qbar-fill" style="width:70%;background:#4ade80"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-name org">Gemini Flash 2.5</div>
+      <div class="card-type">API · Google · 20 RPD free</div>
+      <div class="kv"><span class="kv-k">Latency</span><span class="kv-v">12.7 s</span></div>
+      <div class="kv"><span class="kv-k">Cost/doc</span><span class="kv-v yel">free *</span></div>
+      <div class="kv"><span class="kv-k">Offline</span><span class="kv-v red">No</span></div>
+      <div class="qbar-lbl org">Quality 3.5 / 5</div>
+      <div class="qbar-bg"><div class="qbar-fill" style="width:70%;background:#fb923c"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-name sky">Claude Haiku 4.5</div>
+      <div class="card-type">API · Anthropic · Paid</div>
+      <div class="kv"><span class="kv-k">Latency</span><span class="kv-v">15.5 s</span></div>
+      <div class="kv"><span class="kv-k">Cost/doc</span><span class="kv-v yel">$0.01</span></div>
+      <div class="kv"><span class="kv-k">Offline</span><span class="kv-v red">No</span></div>
+      <div class="qbar-lbl sky">Quality 4 / 5</div>
+      <div class="qbar-bg"><div class="qbar-fill" style="width:80%;background:#38bdf8"></div></div>
+    </div>
+
+    <div class="card gold">
+      <div class="card-name pur">Claude Opus ★</div>
+      <div class="card-type">API · Anthropic · Gold standard</div>
+      <div class="kv"><span class="kv-k">Latency</span><span class="kv-v">~15 s</span></div>
+      <div class="kv"><span class="kv-k">Cost/doc</span><span class="kv-v red">$0.04</span></div>
+      <div class="kv"><span class="kv-k">Offline</span><span class="kv-v red">No</span></div>
+      <div class="qbar-lbl pur">Quality 5 / 5</div>
+      <div class="qbar-bg"><div class="qbar-fill" style="width:100%;background:#c084fc"></div></div>
+    </div>
+
+  </div>
+  <p style="margin-top:12px;font-size:.7rem;color:#334155;">✦ Best value &nbsp;·&nbsp; ★ Gold standard benchmark &nbsp;·&nbsp; Azure DI blocked (no Visa card)</p>
+</div>
+
+<!-- ══════════════════════════════════ SLIDE 3 — SPEED vs QUALITY -->
+<div class="slide slide-3">
+  <div class="eyebrow">Performance</div>
+  <h2>Speed <span class="dim">vs</span> Quality</h2>
+  <div class="row" style="gap:48px;">
+
+    <div class="col">
+      <h3>Response time — lower is better</h3>
+
+      <div class="bar-row">
+        <div class="bar-hd"><span class="grn">Llama 4 Scout</span><span class="grn">2.7 s</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:17%;background:#4ade80"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-hd"><span class="red">PaddleOCR</span><span class="red">6.5 s</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:41%;background:#f87171"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-hd"><span class="org">Gemini Flash 2.5</span><span class="org">12.7 s</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:80%;background:#fb923c"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-hd"><span class="sky">Claude Haiku 4.5</span><span class="sky">15.5 s</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:97%;background:#38bdf8"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-hd"><span class="pur">Claude Opus</span><span class="pur">~16 s</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:100%;background:#c084fc"></div></div>
+      </div>
+    </div>
+
+    <div class="col">
+      <h3>Arabic quality — higher is better</h3>
+
+      <div class="bar-row">
+        <div class="bar-hd"><span class="red">PaddleOCR</span><span class="red">1 / 5</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:20%;background:#f87171"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-hd"><span class="yel">EasyOCR</span><span class="yel">2 / 5</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:40%;background:#fbbf24"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-hd"><span class="grn">Llama 4 Scout</span><span class="grn">3.5 / 5</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:70%;background:#4ade80"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-hd"><span class="org">Gemini Flash 2.5</span><span class="org">3.5 / 5</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:70%;background:#fb923c"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-hd"><span class="sky">Claude Haiku 4.5</span><span class="sky">4 / 5</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:80%;background:#38bdf8"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-hd"><span class="pur">Claude Opus</span><span class="pur">5 / 5</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:100%;background:#c084fc"></div></div>
+      </div>
+    </div>
+
+  </div>
+  <div class="box box-grn">
+    <strong class="grn">Key finding:</strong> Llama 4 Scout is <strong>4.7× faster</strong> than Gemini Flash at the <strong>exact same quality level</strong> — both essentially free on Groq.
+  </div>
+</div>
+
+<!-- ══════════════════════════════════ SLIDE 4 — ERROR ANALYSIS -->
+<div class="slide slide-4">
+  <div class="eyebrow">Error Analysis</div>
+  <h2>Where Each Engine <span class="red">Fails</span></h2>
+
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>Engine</th>
+        <th>Failure type</th>
+        <th>Example error</th>
+        <th>Severity</th>
+        <th>Production-safe?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="font-weight:700" class="red">PaddleOCR</td>
+        <td>Word fusion + garbage chars</td>
+        <td><code class="red">قرارقرئيسبرئي</code></td>
+        <td><span class="badge b-crit">Critical</span></td>
+        <td class="red" style="font-weight:700">No</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700" class="yel">EasyOCR</td>
+        <td>Critical word substitution</td>
+        <td><code class="red">تقلد</code> → should be <code class="grn">تقرر</code></td>
+        <td><span class="badge b-crit">Critical</span></td>
+        <td class="red" style="font-weight:700">No</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700" class="grn">Llama 4 Scout</td>
+        <td>Proper name errors</td>
+        <td><code class="yel">رفيق</code> → should be <code class="grn">رشدي</code></td>
+        <td><span class="badge b-mod">Moderate</span></td>
+        <td class="yel" style="font-weight:700">With review</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700" class="org">Gemini Flash 2.5</td>
+        <td>None found in testing</td>
+        <td class="dim">—</td>
+        <td><span class="badge b-ok">None</span></td>
+        <td class="grn" style="font-weight:700">Yes (20 RPD cap)</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700" class="sky">Claude Haiku 4.5</td>
+        <td>None found in testing</td>
+        <td class="dim">—</td>
+        <td><span class="badge b-ok">None</span></td>
+        <td class="grn" style="font-weight:700">Yes</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700" class="pur">Claude Opus</td>
+        <td>None found in testing</td>
+        <td class="dim">—</td>
+        <td><span class="badge b-ok">None</span></td>
+        <td class="grn" style="font-weight:700">Yes — gold standard</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="box box-red" style="margin-top:16px;">
+    <strong class="red">EasyOCR disqualifier:</strong> <code>تقلد</code> vs <code>تقرر</code> — "assumed a role" vs "it was decided." In a legal government decision clause, this changes the entire meaning of the document.
+  </div>
+</div>
+
+<!-- ══════════════════════════════════ SLIDE 5 — COST -->
+<div class="slide slide-5">
+  <div class="eyebrow">Cost Projection</div>
+  <h2>Cost at <span class="pur">1,000 docs / month</span></h2>
+
+  <div class="row" style="gap:40px;">
+    <div class="col2">
+      <table class="tbl">
+        <thead>
+          <tr><th>Strategy</th><th>Monthly cost</th><th>Quality</th><th>Note</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:600">PaddleOCR only</td>
+            <td class="grn" style="font-weight:700">$0</td>
+            <td class="red">1/5 — unusable</td>
+            <td class="dim" style="font-size:.75rem">Offline only</td>
+          </tr>
+          <tr class="hi">
+            <td style="font-weight:600">Llama 4 Scout (Groq)</td>
+            <td class="grn" style="font-weight:700">~$0</td>
+            <td class="grn">3.5/5</td>
+            <td class="grn" style="font-size:.75rem">Paid tier TBD</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">Hybrid: PaddleOCR + Haiku text</td>
+            <td class="yel" style="font-weight:700">~$4</td>
+            <td class="sky">~4/5</td>
+            <td class="dim" style="font-size:.75rem">Best cost/quality</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">Haiku vision only</td>
+            <td class="yel" style="font-weight:700">$10</td>
+            <td class="sky">4/5</td>
+            <td class="dim" style="font-size:.75rem">Clean, simple</td>
+          </tr>
+          <tr class="gi">
+            <td style="font-weight:600">Opus vision only</td>
+            <td class="red" style="font-weight:700">$40</td>
+            <td class="pur">5/5</td>
+            <td class="pur" style="font-size:.75rem">Gold standard only</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col">
+      <h3>Per document</h3>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:10px;">
+        <div><div class="dim" style="font-size:.75rem;margin-bottom:2px;">Llama / PaddleOCR</div><div style="font-size:2rem;font-weight:800" class="grn">$0.000</div></div>
+        <div><div class="dim" style="font-size:.75rem;margin-bottom:2px;">Hybrid (OCR + Haiku text)</div><div style="font-size:2rem;font-weight:800" class="yel">~$0.004</div></div>
+        <div><div class="dim" style="font-size:.75rem;margin-bottom:2px;">Claude Haiku vision</div><div style="font-size:2rem;font-weight:800" class="sky">$0.010</div></div>
+        <div><div class="dim" style="font-size:.75rem;margin-bottom:2px;">Claude Opus vision</div><div style="font-size:2rem;font-weight:800" class="pur">$0.040</div></div>
+      </div>
+      <div class="box box-sky" style="margin-top:18px;font-size:.82rem;">
+        Hybrid approach is <strong class="sky">60% cheaper</strong> than Haiku vision — text prompt vs image prompt.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════ SLIDE 6 — NEXT -->
+<div class="slide slide-6">
+  <div class="eyebrow">Roadmap</div>
+  <h2>What's <span class="sky">Next</span></h2>
+  <div class="row" style="gap:32px;">
+
+    <div class="col">
+      <h3>Stage 1 — Remaining</h3>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:7px;font-size:.85rem;">
+        <li><span class="yel">◐</span>&nbsp; EasyOCR tuned configs (beamsearch + magnification)</li>
+        <li><span class="yel">◐</span>&nbsp; Confirm Llama 4 Scout paid pricing on Groq</li>
+        <li><span class="yel">◐</span>&nbsp; Confirm Gemini Flash 2.5 paid pricing</li>
+        <li><span class="yel">◐</span>&nbsp; Lock final OCR backend per combo</li>
+      </ul>
+      <div style="margin-top:20px;">
+        <h3>Dropped</h3>
+        <p style="font-size:.82rem;color:#475569;margin-top:6px;"><s>Azure DI (AZ, H1A, H2, H3)</s> — requires Visa card</p>
+      </div>
+    </div>
+
+    <div class="col">
+      <h3>Stage 2 — Classification</h3>
+      <p style="font-size:.82rem;color:#94a3b8;margin:6px 0 10px;">Identify doc type from OCR text (91 types)</p>
+      <ul style="list-style:none;font-size:.82rem;display:flex;flex-direction:column;gap:5px;color:#64748b;">
+        <li><span class="dim">○</span>&nbsp; AraBERT zero-shot → fine-tuned</li>
+        <li><span class="dim">○</span>&nbsp; LLM-based (Gemini / Claude / Llama)</li>
+      </ul>
+      <div style="margin-top:20px;">
+        <h3>Stage 3 — Extraction</h3>
+        <p style="font-size:.82rem;color:#94a3b8;margin:6px 0 10px;">Pull schema fields from text + doc type</p>
+        <ul style="list-style:none;font-size:.82rem;display:flex;flex-direction:column;gap:5px;color:#64748b;">
+          <li><span class="dim">○</span>&nbsp; LayoutLMv3 zero-shot → fine-tuned</li>
+          <li><span class="dim">○</span>&nbsp; LLM-based extraction</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="col">
+      <h3>Active Combos (6)</h3>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;font-size:.82rem;">
+        <div style="background:rgba(255,255,255,.04);border-radius:6px;padding:7px 12px;"><span class="dim" style="font-size:.68rem;">L1</span>&nbsp; PaddleOCR + AraBERT + LayoutLMv3</div>
+        <div style="background:rgba(255,255,255,.04);border-radius:6px;padding:7px 12px;"><span class="dim" style="font-size:.68rem;">L3</span>&nbsp; PaddleOCR + AraBERT (ft) + LayoutLMv3 (ft)</div>
+        <div style="background:rgba(255,255,255,.04);border-radius:6px;padding:7px 12px;"><span class="dim" style="font-size:.68rem;">FL</span>&nbsp; Gemini Vision end-to-end</div>
+        <div style="background:rgba(255,255,255,.04);border-radius:6px;padding:7px 12px;"><span class="dim" style="font-size:.68rem;">H1G</span>&nbsp; PaddleOCR + Gemini Flash</div>
+        <div style="background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.2);border-radius:6px;padding:7px 12px;"><span class="grn" style="font-size:.68rem;">H1C</span>&nbsp; PaddleOCR + Claude Haiku</div>
+        <div style="background:rgba(255,255,255,.04);border-radius:6px;padding:7px 12px;"><span class="dim" style="font-size:.68rem;">H1Q</span>&nbsp; PaddleOCR + Qwen Max</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</div><!-- /deck -->
+
+<nav class="nav">
+  <button class="btn" id="prev" onclick="go(-1)" disabled>← Prev</button>
+  <span class="ctr" id="ctr">1 / 6</span>
+  <button class="btn" id="next" onclick="go(1)">Next →</button>
+</nav>
+<div class="dots" id="dots"></div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const dotsEl = document.getElementById('dots');
+  let cur = 0;
+
+  slides.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' on' : '');
+    d.onclick = () => show(i);
+    dotsEl.appendChild(d);
+  });
+
+  function show(n) {
+    slides[cur].classList.remove('active');
+    dotsEl.children[cur].classList.remove('on');
+    cur = n;
+    slides[cur].classList.add('active');
+    dotsEl.children[cur].classList.add('on');
+    document.getElementById('ctr').textContent = (cur + 1) + ' / ' + slides.length;
+    document.getElementById('prev').disabled = cur === 0;
+    document.getElementById('next').disabled = cur === slides.length - 1;
+  }
+
+  function go(d) { if (cur + d >= 0 && cur + d < slides.length) show(cur + d); }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ') go(1);
+    if (e.key === 'ArrowLeft') go(-1);
+    if (e.key === 'f' || e.key === 'F') document.documentElement.requestFullscreen?.();
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,367 @@
+{
+"SELECT \n    d.doc_name, \n    COUNT(f.FIELD_NAME) AS number_of_fields\nFROM emp_data.DOC_DOCUMENTS d\nJOIN emp_data.DOC_DOCUMENT_FIELDS f ON d.OID = f.document_id\nGROUP BY \n    d.doc_name\nORDER BY \n    number_of_fields DESC": [
+	{
+		"DOC_NAME" : "صورة الهوية\n",
+		"NUMBER_OF_FIELDS" : 26
+	},
+	{
+		"DOC_NAME" : "قرار صرف علاوة مؤهل علمي",
+		"NUMBER_OF_FIELDS" : 15
+	},
+	{
+		"DOC_NAME" : "قرار تثبيت\n",
+		"NUMBER_OF_FIELDS" : 12
+	},
+	{
+		"DOC_NAME" : "إنتداب\n",
+		"NUMBER_OF_FIELDS" : 11
+	},
+	{
+		"DOC_NAME" : "الشهادة الجامعية\n",
+		"NUMBER_OF_FIELDS" : 11
+	},
+	{
+		"DOC_NAME" : "قرار انهاء خدمة\n",
+		"NUMBER_OF_FIELDS" : 11
+	},
+	{
+		"DOC_NAME" : "قرار تجديد العقود\n",
+		"NUMBER_OF_FIELDS" : 11
+	},
+	{
+		"DOC_NAME" : "قرار تسكين الموظف\n",
+		"NUMBER_OF_FIELDS" : 11
+	},
+	{
+		"DOC_NAME" : "قرار تعاقد\n",
+		"NUMBER_OF_FIELDS" : 11
+	},
+	{
+		"DOC_NAME" : "نقل الموظف\n",
+		"NUMBER_OF_FIELDS" : 11
+	},
+	{
+		"DOC_NAME" : "إنهاء انتداب موظف\n",
+		"NUMBER_OF_FIELDS" : 10
+	},
+	{
+		"DOC_NAME" : "قرار محو العقوبات\n",
+		"NUMBER_OF_FIELDS" : 10
+	},
+	{
+		"DOC_NAME" : "القرارات",
+		"NUMBER_OF_FIELDS" : 9
+	},
+	{
+		"DOC_NAME" : "عقد ايجار",
+		"NUMBER_OF_FIELDS" : 9
+	},
+	{
+		"DOC_NAME" : "قرار انتداب موظف\n",
+		"NUMBER_OF_FIELDS" : 9
+	},
+	{
+		"DOC_NAME" : "قرار نقل\n",
+		"NUMBER_OF_FIELDS" : 9
+	},
+	{
+		"DOC_NAME" : "تكليف موظف\n",
+		"NUMBER_OF_FIELDS" : 8
+	},
+	{
+		"DOC_NAME" : "قرار إعادة موظف للعمل\n",
+		"NUMBER_OF_FIELDS" : 8
+	},
+	{
+		"DOC_NAME" : "قرار إيقاف موظف عن العمل\n",
+		"NUMBER_OF_FIELDS" : 8
+	},
+	{
+		"DOC_NAME" : "قرار انهاء التعاقد\n",
+		"NUMBER_OF_FIELDS" : 8
+	},
+	{
+		"DOC_NAME" : "قرار تعديل طببيعة العمل الخاصة بالموظفين\n",
+		"NUMBER_OF_FIELDS" : 8
+	},
+	{
+		"DOC_NAME" : "قرار تكليف",
+		"NUMBER_OF_FIELDS" : 8
+	},
+	{
+		"DOC_NAME" : "قرار تكليف\n",
+		"NUMBER_OF_FIELDS" : 8
+	},
+	{
+		"DOC_NAME" : "قرار صرف بدل عجز مالي",
+		"NUMBER_OF_FIELDS" : 8
+	},
+	{
+		"DOC_NAME" : "قرار صرف مكافأة",
+		"NUMBER_OF_FIELDS" : 8
+	},
+	{
+		"DOC_NAME" : "نقل المتعاقد\n",
+		"NUMBER_OF_FIELDS" : 8
+	},
+	{
+		"DOC_NAME" : "تنبيه\n",
+		"NUMBER_OF_FIELDS" : 7
+	},
+	{
+		"DOC_NAME" : "شهادة التوجيهي\n",
+		"NUMBER_OF_FIELDS" : 7
+	},
+	{
+		"DOC_NAME" : "شهادة دورة تدريبية\n",
+		"NUMBER_OF_FIELDS" : 7
+	},
+	{
+		"DOC_NAME" : "قرار تحويل الموظفين من بند المقاول إلى عقد عمل مؤقت\n",
+		"NUMBER_OF_FIELDS" : 7
+	},
+	{
+		"DOC_NAME" : "قرار ترقية\n",
+		"NUMBER_OF_FIELDS" : 7
+	},
+	{
+		"DOC_NAME" : "قرار تعديل المسمى الوظيفي\n",
+		"NUMBER_OF_FIELDS" : 7
+	},
+	{
+		"DOC_NAME" : "إقرار تغيير عنوان السكن\n",
+		"NUMBER_OF_FIELDS" : 6
+	},
+	{
+		"DOC_NAME" : "شهادة قيد جامعية\n",
+		"NUMBER_OF_FIELDS" : 6
+	},
+	{
+		"DOC_NAME" : "عقد الزواج\n",
+		"NUMBER_OF_FIELDS" : 6
+	},
+	{
+		"DOC_NAME" : "عنوان السكن\n",
+		"NUMBER_OF_FIELDS" : 6
+	},
+	{
+		"DOC_NAME" : "فاتورة المياه\n",
+		"NUMBER_OF_FIELDS" : 6
+	},
+	{
+		"DOC_NAME" : "لجنة دائمة\n",
+		"NUMBER_OF_FIELDS" : 6
+	},
+	{
+		"DOC_NAME" : "لجنة مؤقتة\n",
+		"NUMBER_OF_FIELDS" : 6
+	},
+	{
+		"DOC_NAME" : "إعلان وظيفة\n",
+		"NUMBER_OF_FIELDS" : 5
+	},
+	{
+		"DOC_NAME" : "إنذار\n",
+		"NUMBER_OF_FIELDS" : 5
+	},
+	{
+		"DOC_NAME" : "إنذار نهائي بالفصل\n",
+		"NUMBER_OF_FIELDS" : 5
+	},
+	{
+		"DOC_NAME" : "الإنذار بالفصل\n",
+		"NUMBER_OF_FIELDS" : 5
+	},
+	{
+		"DOC_NAME" : "الحرمان من الترقية\n",
+		"NUMBER_OF_FIELDS" : 5
+	},
+	{
+		"DOC_NAME" : "الحرمان من العلاوة الدورية\n",
+		"NUMBER_OF_FIELDS" : 5
+	},
+	{
+		"DOC_NAME" : "الوقف عن العمل مدة لا تتجاوز 6 أشهر\n",
+		"NUMBER_OF_FIELDS" : 5
+	},
+	{
+		"DOC_NAME" : "تخفيض الدرجة\n",
+		"NUMBER_OF_FIELDS" : 5
+	},
+	{
+		"DOC_NAME" : "خصم أيام بدون راتب",
+		"NUMBER_OF_FIELDS" : 5
+	},
+	{
+		"DOC_NAME" : "شهادة خبرة\n",
+		"NUMBER_OF_FIELDS" : 5
+	},
+	{
+		"DOC_NAME" : "عقد عمل\n",
+		"NUMBER_OF_FIELDS" : 5
+	},
+	{
+		"DOC_NAME" : "قرار القمسيون الطبي\t\n",
+		"NUMBER_OF_FIELDS" : 5
+	},
+	{
+		"DOC_NAME" : "قرارات اخري",
+		"NUMBER_OF_FIELDS" : 5
+	},
+	{
+		"DOC_NAME" : "لفت نظر",
+		"NUMBER_OF_FIELDS" : 5
+	},
+	{
+		"DOC_NAME" : "أمر بالإفراج\n",
+		"NUMBER_OF_FIELDS" : 4
+	},
+	{
+		"DOC_NAME" : "الإحالة إلى المعاش\n",
+		"NUMBER_OF_FIELDS" : 4
+	},
+	{
+		"DOC_NAME" : "الفصل عن الخدمة\n",
+		"NUMBER_OF_FIELDS" : 4
+	},
+	{
+		"DOC_NAME" : "انهاء خدمة بسبب التغيب\n",
+		"NUMBER_OF_FIELDS" : 4
+	},
+	{
+		"DOC_NAME" : "تعديل حالة اجتماعية\n",
+		"NUMBER_OF_FIELDS" : 4
+	},
+	{
+		"DOC_NAME" : "تقرير طبي",
+		"NUMBER_OF_FIELDS" : 4
+	},
+	{
+		"DOC_NAME" : "شهادة وفاة\n",
+		"NUMBER_OF_FIELDS" : 4
+	},
+	{
+		"DOC_NAME" : "عقد العمل",
+		"NUMBER_OF_FIELDS" : 4
+	},
+	{
+		"DOC_NAME" : "قرار تعديل اجور",
+		"NUMBER_OF_FIELDS" : 4
+	},
+	{
+		"DOC_NAME" : "كتاب شكر وتقدير",
+		"NUMBER_OF_FIELDS" : 4
+	},
+	{
+		"DOC_NAME" : "نتائج المقابلات\n",
+		"NUMBER_OF_FIELDS" : 4
+	},
+	{
+		"DOC_NAME" : "إصابة عمل\t\n",
+		"NUMBER_OF_FIELDS" : 3
+	},
+	{
+		"DOC_NAME" : "بطاقة عضوية النقابة\n",
+		"NUMBER_OF_FIELDS" : 3
+	},
+	{
+		"DOC_NAME" : "بيانات البنك\n",
+		"NUMBER_OF_FIELDS" : 3
+	},
+	{
+		"DOC_NAME" : "رخصة قيادة\n",
+		"NUMBER_OF_FIELDS" : 3
+	},
+	{
+		"DOC_NAME" : "شهادات ميلاد الأبناء\n",
+		"NUMBER_OF_FIELDS" : 3
+	},
+	{
+		"DOC_NAME" : "شهادة طلاق\n",
+		"NUMBER_OF_FIELDS" : 3
+	},
+	{
+		"DOC_NAME" : "كتاب",
+		"NUMBER_OF_FIELDS" : 3
+	},
+	{
+		"DOC_NAME" : "كشف",
+		"NUMBER_OF_FIELDS" : 3
+	},
+	{
+		"DOC_NAME" : "مراسلات خارجية",
+		"NUMBER_OF_FIELDS" : 3
+	},
+	{
+		"DOC_NAME" : "مراسلات داخلية",
+		"NUMBER_OF_FIELDS" : 3
+	},
+	{
+		"DOC_NAME" : "مكاتبات",
+		"NUMBER_OF_FIELDS" : 3
+	},
+	{
+		"DOC_NAME" : "التقييم السنوي\t\n",
+		"NUMBER_OF_FIELDS" : 2
+	},
+	{
+		"DOC_NAME" : "الكشوفات",
+		"NUMBER_OF_FIELDS" : 2
+	},
+	{
+		"DOC_NAME" : "جواز سفر",
+		"NUMBER_OF_FIELDS" : 2
+	},
+	{
+		"DOC_NAME" : "شهادة عدم محكومية\n",
+		"NUMBER_OF_FIELDS" : 2
+	},
+	{
+		"DOC_NAME" : "شهادة عضوية النقابات المهنية\n",
+		"NUMBER_OF_FIELDS" : 2
+	},
+	{
+		"DOC_NAME" : "شهادة مدرب\n",
+		"NUMBER_OF_FIELDS" : 2
+	},
+	{
+		"DOC_NAME" : "أوراق ما قبل التثبيت\n",
+		"NUMBER_OF_FIELDS" : 1
+	},
+	{
+		"DOC_NAME" : "تثبيت موظفين\n",
+		"NUMBER_OF_FIELDS" : 1
+	},
+	{
+		"DOC_NAME" : "تقرير تأمين صحي",
+		"NUMBER_OF_FIELDS" : 1
+	},
+	{
+		"DOC_NAME" : "توصيات لجنة المقابلة للعمل\n",
+		"NUMBER_OF_FIELDS" : 1
+	},
+	{
+		"DOC_NAME" : "توصية بشأن تثبيت مستخدم في الخدمة ببلدية غزة\n",
+		"NUMBER_OF_FIELDS" : 1
+	},
+	{
+		"DOC_NAME" : "شهادات دون الثانوية",
+		"NUMBER_OF_FIELDS" : 1
+	},
+	{
+		"DOC_NAME" : "شهادة الميلاد\n",
+		"NUMBER_OF_FIELDS" : 1
+	},
+	{
+		"DOC_NAME" : "شهادة حسن السيرة والسلوك\n",
+		"NUMBER_OF_FIELDS" : 1
+	},
+	{
+		"DOC_NAME" : "قرار تشكيل لجنة خاصة لدراسة الطلبات المقدمة للوظيفة\n",
+		"NUMBER_OF_FIELDS" : 1
+	},
+	{
+		"DOC_NAME" : "نتائج امتحان المتقدمين\n",
+		"NUMBER_OF_FIELDS" : 1
+	}
+]}
