@@ -23,13 +23,12 @@ def _load_schema() -> dict:
 
 @lru_cache(maxsize=1)
 def _type_list_compact() -> str:
-    """One line per doc type: key — label (category)."""
+    """One line per doc type: key — label (no category to save tokens)."""
     docs = _load_schema()["documents"]
     lines = []
     for key, doc in docs.items():
-        label    = doc.get("label_ar", key)
-        category = doc.get("category_label_ar") or doc.get("category", "")
-        lines.append(f"• {key} — {label} ({category})")
+        label = doc.get("label_ar", key)
+        lines.append(f"• {key} — {label}")
     return "\n".join(lines)
 
 
@@ -78,7 +77,8 @@ def build_stage2_prompt() -> str:
 ## أنواع الوثائق
 {type_list}
 
-إذا لم يتطابق النص مع أي نوع اذكر: {FALLBACK_TYPE}
+**يجب** دائماً اختيار أقرب نوع من القائمة أعلاه — حتى لو لم تكن متأكداً تماماً.
+لا تعد أي مفتاح خارج القائمة.
 
 ## صيغة الإخراج
 أعد JSON فقط — لا نص قبله ولا بعده:
@@ -155,6 +155,105 @@ def build_stage3_prompt(doc_type: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# English prompt variants (same logic, English instructions)
+# ---------------------------------------------------------------------------
+
+def build_stage1_prompt_en() -> str:
+    return """You are an OCR system specialized in extracting text from official Arabic documents.
+
+## Task
+Extract all visible text in the image with full accuracy:
+- Preserve text in its original script (Arabic or English) — no translation or conversion
+- Preserve line breaks and paragraph structure
+- Include text in stamps, seals, signatures, and margins
+- Numbers and dates exactly as they appear
+
+## Output Format
+Return JSON only — no text before or after — starting with { and ending with }:
+{
+  "raw_text": "The full text extracted from the document"
+}"""
+
+
+def build_stage2_prompt_en() -> str:
+    type_list = _type_list_compact()
+    return f"""You are a precise document classification system.
+
+## Task
+Read the text below and identify the document type from the list below.
+You MUST return the Arabic key exactly as it appears before the dash on each line.
+The keys are Arabic words — copy them character for character, do not translate them.
+
+## Document Types (format: "arabic_key — label")
+{type_list}
+
+You **must** always pick the closest matching key from the list above — even if you are not fully certain.
+Never return a key that is not in the list above.
+
+## Output Format
+Return JSON only — no text before or after:
+{{
+  "document_type": "الـمـفـتـاح_العربي_بالضبط",
+  "confidence": "high | medium | low"
+}}
+
+## Text:
+"""
+
+
+def build_stage3_prompt_en(doc_type: str) -> str:
+    schema  = _load_schema()
+    doc_def = schema["documents"].get(doc_type)
+
+    if not doc_def:
+        raise ValueError(f"Unknown document type: '{doc_type}'")
+
+    label  = doc_def["label_ar"]
+    fields = doc_def["fields"]
+
+    field_lines = []
+    for f in fields:
+        fid    = f["id"]
+        flabel = f["label_ar"]
+        ftype  = f["type"]
+        req    = " [required]" if f.get("required") else " [optional]"
+
+        if ftype == "lookup":
+            opts = " | ".join(f.get("options", []))
+            hint = f"return exactly one of: {opts}"
+        elif ftype == "date":
+            hint = "date in YYYY-MM-DD format only — no month names or era markers — e.g. 2024-03-15"
+        elif ftype == "number":
+            hint = "integer only — no letters, units, or symbols — e.g. 42"
+        else:
+            hint = "text — preserve original Arabic script, no translation"
+
+        field_lines.append(f'  "{fid}": null  // {flabel}{req} — {hint}')
+
+    fields_block = "\n".join(field_lines)
+
+    return f"""You are a precise data extraction system for official documents.
+
+## Document Type: {label}
+
+## Extraction Rules
+- Return all text in its original Arabic script — no translation
+- If a field is not present in the text, return null
+- lookup: return one of the listed values exactly — do not invent values outside the list
+- date: always return YYYY-MM-DD — convert any other format (Arabic months, era markers) to it
+- number: return an integer only — no letters, units, or symbols
+
+## Required Fields
+Return JSON only — no text before or after:
+{{
+{fields_block}
+}}
+
+## Text:
+"""
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -166,3 +265,133 @@ def get_doc_fields(doc_type: str) -> list[dict]:
 
 def known_types() -> list[str]:
     return list(_load_schema()["documents"].keys())
+
+
+def known_categories() -> list[str]:
+    docs = _load_schema()["documents"]
+    seen: dict[str, None] = {}
+    for doc in docs.values():
+        seen[doc.get("category", "")] = None
+    return [c for c in seen if c]
+
+
+@lru_cache(maxsize=1)
+def _category_list_compact() -> str:
+    docs = _load_schema()["documents"]
+    seen: dict[str, str] = {}
+    for doc in docs.values():
+        cat = doc.get("category", "")
+        label = doc.get("category_label_ar", cat)
+        if cat and cat not in seen:
+            seen[cat] = label
+    return "\n".join(f"• {cat} — {label}" for cat, label in seen.items())
+
+
+@lru_cache(maxsize=None)
+def _types_for_category(category: str) -> str:
+    docs = _load_schema()["documents"]
+    lines = []
+    for key, doc in docs.items():
+        if doc.get("category") == category:
+            lines.append(f"• {key} — {doc.get('label_ar', key)}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Stage 2 two-pass — Pass 1: category  /  Pass 2: specific type
+# ---------------------------------------------------------------------------
+
+def build_stage2a_prompt() -> str:
+    cat_list = _category_list_compact()
+    return f"""أنت نظام تصنيف وثائق.
+
+## المهمة
+اقرأ النص وحدد الفئة العامة للوثيقة من القائمة التالية فقط.
+أعد مفتاح الفئة بالضبط كما هو مكتوب قبل الشرطة — لا تترجمه.
+
+## الفئات
+{cat_list}
+
+**يجب** دائماً اختيار الفئة الأقرب — لا تعد أي قيمة خارج القائمة.
+
+## صيغة الإخراج
+أعد JSON فقط — لا نص قبله ولا بعده:
+{{
+  "category": "مفتاح_الفئة",
+  "confidence": "high | medium | low"
+}}
+
+## النص:
+"""
+
+
+def build_stage2b_prompt(category: str) -> str:
+    type_list = _types_for_category(category) or _type_list_compact()
+    return f"""أنت نظام تصنيف وثائق.
+
+## المهمة
+اقرأ النص وحدد نوع الوثيقة بالضبط من القائمة التالية.
+أعد المفتاح بالضبط كما هو مكتوب قبل الشرطة.
+
+## أنواع الوثائق
+{type_list}
+
+**يجب** دائماً اختيار النوع الأقرب — لا تعد أي مفتاح خارج القائمة.
+
+## صيغة الإخراج
+أعد JSON فقط — لا نص قبله ولا بعده:
+{{
+  "document_type": "المفتاح_بالضبط",
+  "confidence": "high | medium | low"
+}}
+
+## النص:
+"""
+
+
+def build_stage2a_prompt_en() -> str:
+    cat_list = _category_list_compact()
+    return f"""You are a document classification system.
+
+## Task
+Read the text and identify which broad category this document belongs to.
+Return the Arabic category key exactly as written before the dash — do not translate it.
+
+## Categories
+{cat_list}
+
+You MUST always pick the closest category — never return anything outside this list.
+
+## Output Format
+Return JSON only — no text before or after:
+{{
+  "category": "arabic_category_key",
+  "confidence": "high | medium | low"
+}}
+
+## Text:
+"""
+
+
+def build_stage2b_prompt_en(category: str) -> str:
+    type_list = _types_for_category(category) or _type_list_compact()
+    return f"""You are a document classification system.
+
+## Task
+Read the text and identify the exact document type from the list below.
+Return the Arabic key exactly as written before the dash — copy it character for character, do not translate.
+
+## Document Types
+{type_list}
+
+You MUST always pick the closest type — never return anything outside this list.
+
+## Output Format
+Return JSON only — no text before or after:
+{{
+  "document_type": "arabic_key_exactly",
+  "confidence": "high | medium | low"
+}}
+
+## Text:
+"""

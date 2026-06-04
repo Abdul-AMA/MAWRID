@@ -1,19 +1,22 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  getTwoStageModels, runTwoStage, getSchema, buildUICategories, saveDocument,
+  runTwoStage, getSchema, buildUICategories, saveDocument,
   UIField, UICategory,
 } from "@/lib/api";
 import {
   Upload, Loader2, FileText, RotateCcw,
   Save, CheckCircle2, Check, X, Sparkles,
+  ChevronDown, ChevronUp, Cpu, Coins, Clock, Eye, Tag, AlignLeft,
+  AlertCircle,
 } from "lucide-react";
+import { ThreeStageResult } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 interface Props {
   dir: "rtl" | "ltr"
-  defaultModel?: string
-  providerPrefix?: string
+  modelOverride?: string
+  promptLang?: "ar" | "en" | "en-ocr"
 }
 type AIPhase = "idle" | "loading" | "filling" | "done";
 type FieldAIState = "pending" | "accepted" | "ignored";
@@ -47,9 +50,177 @@ function FieldInput({
   return <input type="text" value={value} onChange={e => onChange(e.target.value)} disabled={disabled} className={base} />;
 }
 
+// ── PipelineDetails ───────────────────────────────────────────────────────────
+
+const STAGE_META = [
+  { key: "stage1", icon: Eye,      color: "text-indigo-500 bg-indigo-50 border-indigo-200", label: { en: "Stage 1 — OCR",      ar: "المرحلة ١ — استخراج النص" } },
+  { key: "stage2", icon: Tag,      color: "text-amber-500 bg-amber-50 border-amber-200",    label: { en: "Stage 2 — Classify",  ar: "المرحلة ٢ — التصنيف" } },
+  { key: "stage3", icon: AlignLeft, color: "text-emerald-500 bg-emerald-50 border-emerald-200", label: { en: "Stage 3 — Extract", ar: "المرحلة ٣ — الاستخراج" } },
+] as const;
+
+function PipelineDetails({ result, dir }: { result: ThreeStageResult; dir: "rtl" | "ltr" }) {
+  const [open, setOpen] = useState<string | null>(null);
+
+  const stages = [
+    { ...STAGE_META[0], data: result.stage1 },
+    { ...STAGE_META[1], data: result.stage2 },
+    { ...STAGE_META[2], data: result.stage3 },
+  ];
+
+  const totalMs = Math.round(
+    result.stage1.latency_ms + result.stage2.latency_ms + result.stage3.latency_ms
+  );
+
+  return (
+    <div className="border-t pt-4 space-y-2">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
+        {dir === "rtl" ? "تفاصيل خط الأنابيب" : "Pipeline Details"}
+      </p>
+
+      {stages.map(({ key, icon: Icon, color, label, data }) => {
+        const isOpen  = open === key;
+        const tokens  = data.input_tokens + data.output_tokens;
+        const modelShort = data.model.split("/").slice(1).join("/").replace(/:.*$/, "") || data.model;
+
+        return (
+          <div key={key} className={cn("rounded-xl border overflow-hidden transition-all", isOpen ? "shadow-sm" : "")}>
+            {/* Header row — always visible */}
+            <button
+              onClick={() => setOpen(isOpen ? null : key)}
+              className="w-full flex items-center gap-3 px-3 py-2.5 bg-white hover:bg-muted/30 transition-colors text-start"
+            >
+              <span className={cn("w-6 h-6 rounded-md flex items-center justify-center shrink-0 border", color)}>
+                <Icon className="w-3.5 h-3.5" />
+              </span>
+              <span className="text-xs font-semibold flex-1 truncate">
+                {dir === "rtl" ? label.ar : label.en}
+              </span>
+              {/* Model chip */}
+              <span className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0 max-w-[110px] truncate">
+                <Cpu className="w-2.5 h-2.5 shrink-0" />
+                {modelShort}
+              </span>
+              {/* Stats */}
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground shrink-0">
+                <Coins className="w-2.5 h-2.5" />{tokens}
+              </span>
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground shrink-0">
+                <Clock className="w-2.5 h-2.5" />{Math.round(data.latency_ms)}ms
+              </span>
+              {isOpen
+                ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              }
+            </button>
+
+            {/* Expanded: model + prompt + result */}
+            {isOpen && (
+              <div className="border-t bg-muted/20 px-3 py-3 space-y-3">
+                {/* Full model */}
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                    {dir === "rtl" ? "النموذج" : "Model"}
+                  </p>
+                  <p className="text-xs font-mono text-foreground break-all">{data.model}</p>
+                </div>
+
+                {/* Prompt */}
+                {data.prompt && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      {dir === "rtl" ? "البرومبت المرسل" : "Prompt Sent"}
+                    </p>
+                    <pre className="text-[11px] leading-relaxed whitespace-pre-wrap break-words font-mono bg-white border rounded-lg p-3 max-h-48 overflow-y-auto" dir="rtl">
+                      {data.prompt}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Result */}
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                    {dir === "rtl" ? "النتيجة" : "Result"}
+                  </p>
+
+                  {key === "stage1" && (
+                    <pre className="text-[11px] leading-relaxed whitespace-pre-wrap break-words font-mono bg-white border rounded-lg p-3 max-h-48 overflow-y-auto" dir="rtl">
+                      {result.stage1.raw_text || (dir === "rtl" ? "— لا نص —" : "— no text —")}
+                    </pre>
+                  )}
+
+                  {key === "stage2" && (
+                    <div className="bg-white border rounded-lg p-3 space-y-2 text-xs font-mono">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">{dir === "rtl" ? "نوع الوثيقة" : "document_type"}</span>
+                        <span className="font-semibold text-amber-700" dir="rtl">{result.stage2.document_type}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">{dir === "rtl" ? "التسمية" : "label"}</span>
+                        <span className="font-semibold" dir="rtl">{result.stage2.document_type_label}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">{dir === "rtl" ? "الثقة" : "confidence"}</span>
+                        <span className={cn(
+                          "font-semibold px-1.5 py-0.5 rounded",
+                          result.stage2.confidence === "high"   ? "bg-emerald-100 text-emerald-700" :
+                          result.stage2.confidence === "medium" ? "bg-amber-100 text-amber-700" :
+                                                                   "bg-red-100 text-red-700"
+                        )}>
+                          {result.stage2.confidence}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {key === "stage3" && (
+                    <div className="bg-white border rounded-lg overflow-hidden">
+                      {Object.entries(result.stage3.fields).length === 0 ? (
+                        <p className="text-xs text-muted-foreground p-3">
+                          {dir === "rtl" ? "— لم يتم استخراج حقول —" : "— no fields extracted —"}
+                        </p>
+                      ) : (
+                        <div className="divide-y max-h-48 overflow-y-auto">
+                          {Object.entries(result.stage3.fields).map(([id, val]) => (
+                            <div key={id} className="flex items-start gap-2 px-3 py-1.5 text-xs">
+                              <span className="text-muted-foreground font-mono shrink-0 w-36 truncate">{id}</span>
+                              <span className={cn(
+                                "font-medium break-all min-w-0",
+                                val === null || val === "" ? "text-muted-foreground/40 italic" : "text-foreground"
+                              )} dir="auto">
+                                {val === null || val === "" ? "null" : String(val)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Total time footer */}
+      <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-muted/40 border mt-1">
+        <span className="text-xs font-semibold text-muted-foreground">
+          {dir === "rtl" ? "الوقت الكلي" : "Total time"}
+        </span>
+        <span className="flex items-center gap-1.5 text-sm font-bold tabular-nums text-foreground">
+          <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+          {totalMs >= 1000
+            ? `${(totalMs / 1000).toFixed(2)}s`
+            : `${totalMs}ms`}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-export default function AssistPage({ dir, defaultModel, providerPrefix }: Props) {
+export default function AssistPage({ dir, modelOverride, promptLang = "ar" }: Props) {
   const [file, setFile]       = useState<File | null>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [ready, setReady]     = useState(false);
@@ -65,7 +236,9 @@ export default function AssistPage({ dir, defaultModel, providerPrefix }: Props)
   const [fieldAIStates, setFieldAIStates] = useState<Record<string, FieldAIState>>({});
   const [fillStep, setFillStep]           = useState(0);
   const [fillProgress, setFillProgress]   = useState(0);
-  const [model, setModel]                 = useState(defaultModel ?? GROQ_SCOUT);
+  const [lastResult, setLastResult]       = useState<ThreeStageResult | null>(null);
+  const [errorMsg, setErrorMsg]           = useState<string | null>(null);
+  const model = modelOverride ?? GROQ_SCOUT;
 
   const qc = useQueryClient();
 
@@ -78,20 +251,6 @@ export default function AssistPage({ dir, defaultModel, providerPrefix }: Props)
     () => schemaData ? buildUICategories(schemaData) : [],
     [schemaData],
   );
-
-  const { data: modelsData } = useQuery({
-    queryKey: ["two-stage-models"],
-    queryFn:  () => getTwoStageModels().then(r => r.data),
-    staleTime: Infinity,
-  });
-  const allModels = useMemo(() => {
-    const all = [...new Set([
-      ...(modelsData?.stage1 ?? []),
-      ...(modelsData?.stage2 ?? []),
-      ...(modelsData?.stage3 ?? []),
-    ])];
-    return providerPrefix ? all.filter(m => m.startsWith(providerPrefix)) : all;
-  }, [modelsData, providerPrefix]);
 
   const selectedCat  = categories.find(c => c.id === category);
   const selectedType = selectedCat?.types.find(t => t.id === docType);
@@ -124,8 +283,9 @@ export default function AssistPage({ dir, defaultModel, providerPrefix }: Props)
 
   // AI mutation
   const aiMutation = useMutation({
-    mutationFn: (f: File) => runTwoStage(f, model, model, model).then(r => r.data),
+    mutationFn: (f: File) => runTwoStage(f, model, model, model, promptLang).then(r => r.data),
     onSuccess: data => {
+      setLastResult(data);
       // Auto-detect category + docType from stage 2
       const detectedType = data.stage2.document_type;
       const catId = schemaData?.documents[detectedType]?.category ?? "";
@@ -143,7 +303,19 @@ export default function AssistPage({ dir, defaultModel, providerPrefix }: Props)
       setFillProgress(0);
       setAiPhase("filling");
     },
-    onError: () => setAiPhase("idle"),
+    onError: (err: unknown) => {
+      setAiPhase("idle");
+      const raw = err instanceof Error ? err.message : String(err);
+      const detail = (() => {
+        try { return (JSON.parse(raw) as { detail?: string }).detail ?? raw; } catch { return raw; }
+      })();
+      if (detail.includes("rate_limit") || detail.includes("Rate limit") || detail.includes("429")) {
+        const wait = detail.match(/try again in (.+?)\./i)?.[1];
+        setErrorMsg(`Groq rate limit reached.${wait ? ` Try again in ${wait}.` : " Try again soon."}`);
+      } else {
+        setErrorMsg(detail.length > 200 ? detail.slice(0, 200) + "…" : detail);
+      }
+    },
   });
 
   // Save mutation
@@ -173,7 +345,7 @@ export default function AssistPage({ dir, defaultModel, providerPrefix }: Props)
 
   const resetAI = () => {
     setAiPhase("idle"); setAiValues({}); setFieldAIStates({});
-    setFillStep(0); setFillProgress(0);
+    setFillStep(0); setFillProgress(0); setLastResult(null);
   };
 
   const handleFile = useCallback((f: File) => {
@@ -189,6 +361,7 @@ export default function AssistPage({ dir, defaultModel, providerPrefix }: Props)
     setAiPhase("loading");
     setAiValues({}); setFieldAIStates({});
     setFillStep(0); setFillProgress(0);
+    setErrorMsg(null);
     aiMutation.mutate(file);
   };
 
@@ -211,7 +384,7 @@ export default function AssistPage({ dir, defaultModel, providerPrefix }: Props)
   const pendingCount = Object.values(fieldAIStates).filter(s => s === "pending").length;
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden relative">
 
       {/* ── Left: document preview ─────────────────────────────────────────── */}
       <div
@@ -417,34 +590,15 @@ export default function AssistPage({ dir, defaultModel, providerPrefix }: Props)
                   </div>
                 </div>
               )}
+
+              {/* ── Pipeline details (shown after AI run) ───────────────── */}
+              {lastResult && aiPhase !== "loading" && (
+                <PipelineDetails result={lastResult} dir={dir} />
+              )}
             </div>
 
             {/* ── Bottom bar ───────────────────────────────────────────────── */}
             <div className="border-t bg-white px-6 py-5 space-y-4 shrink-0">
-
-              {/* Model selector */}
-              <div className="space-y-1.5">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  {dir === "rtl" ? "نموذج الذكاء الاصطناعي" : "AI Model"}
-                </p>
-                <div className="flex flex-col gap-1">
-                  {allModels.map(m => (
-                    <button
-                      key={m}
-                      onClick={() => setModel(m)}
-                      disabled={isAIActive}
-                      className={cn(
-                        "px-3 py-1.5 rounded-lg border text-xs font-mono text-start transition-all truncate",
-                        model === m
-                          ? "border-indigo-300 bg-indigo-50 text-indigo-700"
-                          : "border-border text-muted-foreground hover:border-indigo-200"
-                      )}
-                    >
-                      {m.split("/").slice(1).join("/").replace(/:.*$/, "")}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
               {/* Progress bar */}
               {aiPhase !== "idle" && (
@@ -541,6 +695,19 @@ export default function AssistPage({ dir, defaultModel, providerPrefix }: Props)
           </div>
         )}
       </div>
+
+      {/* Error toast */}
+      {errorMsg && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-3 fade-in duration-300">
+          <div className="flex items-start gap-3 bg-red-600 text-white text-sm font-medium px-4 py-3 rounded-xl shadow-xl max-w-sm">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span className="flex-1">{errorMsg}</span>
+            <button onClick={() => setErrorMsg(null)} className="shrink-0 opacity-70 hover:opacity-100 transition-opacity">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

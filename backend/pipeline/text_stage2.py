@@ -12,7 +12,10 @@ import time
 
 from pipeline.prompts import (
     build_stage2_prompt, build_stage3_prompt,
-    get_doc_fields, FALLBACK_TYPE, known_types,
+    build_stage2_prompt_en, build_stage3_prompt_en,
+    build_stage2a_prompt, build_stage2b_prompt,
+    build_stage2a_prompt_en, build_stage2b_prompt_en,
+    get_doc_fields, FALLBACK_TYPE, known_types, known_categories,
 )
 
 
@@ -20,15 +23,16 @@ from pipeline.prompts import (
 # Stage 2 — Classify document type from raw text
 # ---------------------------------------------------------------------------
 
-def classify_sync(raw_text: str, backend: str, api_key: str) -> dict:
+def classify_sync(raw_text: str, backend: str, api_key: str, lang: str = "ar") -> dict:
     """
     Send raw_text + 91 doc types to a text model → get document_type back.
-    Returns: { document_type, confidence, model, latency_ms, input_tokens, output_tokens }
+    Returns: { document_type, confidence, model, latency_ms, input_tokens, output_tokens, prompt }
     """
-    prompt = build_stage2_prompt() + raw_text
+    system_prompt = build_stage2_prompt_en() if lang == "en" else build_stage2_prompt()  # en-ocr stays Arabic here
+    prompt = system_prompt + raw_text
     raw    = _dispatch(prompt, backend, api_key)
     parsed = _parse_classify_response(raw["text"])
-    return {**raw, **parsed}
+    return {**raw, **parsed, "prompt": system_prompt}
 
 
 def _parse_classify_response(text: str) -> dict:
@@ -48,7 +52,7 @@ def _parse_classify_response(text: str) -> dict:
     confidence = data.get("confidence", "low")
 
     if doc_type not in known_types():
-        doc_type = FALLBACK_TYPE
+        doc_type = _closest_known_type(doc_type)
 
     return {
         "document_type": doc_type,
@@ -56,18 +60,109 @@ def _parse_classify_response(text: str) -> dict:
     }
 
 
+def _closest_known_type(candidate: str) -> str:
+    """
+    Return the known type whose key best matches `candidate`.
+    Priority: exact → substring containment → longest common substring overlap.
+    Falls back to FALLBACK_TYPE only if candidate is empty.
+    """
+    if not candidate:
+        return FALLBACK_TYPE
+
+    types = known_types()
+    c = candidate.strip()
+
+    # 1. Case-insensitive exact match (catches whitespace/case differences)
+    c_lower = c.lower()
+    for t in types:
+        if t.lower() == c_lower:
+            return t
+
+    # 2. Candidate contains a known key, or known key contains candidate
+    for t in types:
+        t_lower = t.lower()
+        if t_lower in c_lower or c_lower in t_lower:
+            return t
+
+    # 3. Longest common substring overlap — pick the type with most shared chars
+    best_type  = FALLBACK_TYPE
+    best_score = 0
+    for t in types:
+        common = sum(1 for ch in c if ch in t)
+        if common > best_score:
+            best_score = common
+            best_type  = t
+
+    return best_type
+
+
+# ---------------------------------------------------------------------------
+# Stage 2 two-pass — lower token cost
+# ---------------------------------------------------------------------------
+
+def classify_two_pass_sync(raw_text: str, backend: str, api_key: str, lang: str = "ar") -> dict:
+    """
+    Pass 1: pick one of 9 categories (~50 tokens for the list).
+    Pass 2: pick exact doc type within that category (~10-31 types, ~150 tokens).
+    Combined latency/token stats are summed for the frontend.
+    """
+    prompt_a = build_stage2a_prompt_en() if lang == "en" else build_stage2a_prompt()
+    raw_a    = _dispatch(prompt_a + raw_text, backend, api_key)
+    category = _parse_category_response(raw_a["text"])
+
+    prompt_b = build_stage2b_prompt_en(category) if lang == "en" else build_stage2b_prompt(category)
+    raw_b    = _dispatch(prompt_b + raw_text, backend, api_key)
+    parsed   = _parse_classify_response(raw_b["text"])
+
+    combined_prompt = f"[Pass 1 — Category]\n{prompt_a}\n\n[Pass 2 — Document Type]\n{prompt_b}"
+    return {
+        **raw_b,
+        **parsed,
+        "latency_ms":    raw_a["latency_ms"] + raw_b["latency_ms"],
+        "input_tokens":  raw_a["input_tokens"] + raw_b["input_tokens"],
+        "output_tokens": raw_a["output_tokens"] + raw_b["output_tokens"],
+        "prompt":        combined_prompt,
+    }
+
+
+def _parse_category_response(text: str) -> str:
+    cleaned = re.sub(r"```(?:json)?\s*", "", text).strip().rstrip("`").strip()
+    try:
+        data = json.loads(cleaned)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+        data  = {}
+        if match:
+            try:
+                data = json.loads(match.group())
+            except json.JSONDecodeError:
+                pass
+
+    category = data.get("category", "")
+    cats     = known_categories()
+    if category in cats:
+        return category
+    # fuzzy fallback
+    c_lower = category.lower()
+    for c in cats:
+        if c.lower() in c_lower or c_lower in c.lower():
+            return c
+    return cats[0] if cats else ""
+
+
 # ---------------------------------------------------------------------------
 # Stage 3 — Extract fields from raw text
 # ---------------------------------------------------------------------------
 
-def run_sync(raw_text: str, doc_type: str, backend: str, api_key: str) -> dict:
+def run_sync(raw_text: str, doc_type: str, backend: str, api_key: str, lang: str = "ar") -> dict:
     """Stage 3: extract structured fields from raw_text for the given doc_type."""
     if doc_type == FALLBACK_TYPE or not doc_type:
-        return {"fields": {}, "model": backend, "latency_ms": 0.0, "input_tokens": 0, "output_tokens": 0}
+        return {"fields": {}, "model": backend, "latency_ms": 0.0, "input_tokens": 0, "output_tokens": 0, "prompt": ""}
 
-    prompt = build_stage3_prompt(doc_type) + raw_text
+    system_prompt = build_stage3_prompt_en(doc_type) if lang == "en" else build_stage3_prompt(doc_type)  # en-ocr stays Arabic here
+    prompt = system_prompt + raw_text
     raw    = _dispatch(prompt, backend, api_key)
-    return {**raw, "fields": _parse_fields(raw["text"], doc_type)}
+    return {**raw, "fields": _parse_fields(raw["text"], doc_type), "prompt": system_prompt}
 
 
 async def run(raw_text: str, doc_type: str, backend: str, api_key: str) -> dict:

@@ -18,25 +18,25 @@ import io
 import time
 from pathlib import Path
 
-from pipeline.prompts import build_stage1_prompt
+from pipeline.prompts import build_stage1_prompt, build_stage1_prompt_en
 
 
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
 
-def run_sync(file_bytes: bytes, backend: str, api_key: str) -> dict:
+def run_sync(file_bytes: bytes, backend: str, api_key: str, lang: str = "ar") -> dict:
     """
     Synchronous OCR-only stage. Returns raw_text + page_images.
     Returns:
         { raw_text, page_images, model, latency_ms, input_tokens, output_tokens }
     """
     jpeg_pages = _to_jpeg_pages(file_bytes)
-    prompt     = build_stage1_prompt()
+    prompt     = build_stage1_prompt_en() if lang in ("en", "en-ocr") else build_stage1_prompt()
     raw        = _dispatch(jpeg_pages, prompt, backend, api_key)
     raw_text   = _parse_ocr_response(raw["text"])
     page_images = [base64.b64encode(p).decode() for p in jpeg_pages]
-    return {**raw, "raw_text": raw_text, "page_images": page_images}
+    return {**raw, "raw_text": raw_text, "page_images": page_images, "prompt": prompt}
 
 
 async def run(file_bytes: bytes, backend: str, api_key: str) -> dict:

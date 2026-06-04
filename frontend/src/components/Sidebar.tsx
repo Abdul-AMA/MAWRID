@@ -1,5 +1,6 @@
+import { useState, useRef } from "react";
 import { NavLink } from "react-router-dom";
-import { Sparkles, Archive, Globe, ScanText, Eye, Zap, Cloud, GitCompare, WandSparkles, Bot, Cpu } from "lucide-react";
+import { PenLine, Archive, Globe, WandSparkles, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -8,20 +9,54 @@ interface Props {
 }
 
 const NAV = [
-  { to: "/",           end: true,  icon: Sparkles, label: { ar: "المعالجة",        en: "Process" } },
-  { to: "/saved",      end: false, icon: Archive,  label: { ar: "السجلات",         en: "Saved Records" } },
-  { to: "/ocr",        end: false, icon: ScanText, label: { ar: "مرحلة OCR",       en: "OCR Stage" } },
-  { to: "/ocr-vision",      end: false, icon: Eye,   label: { ar: "OCR كلود",         en: "Claude OCR" } },
-  { to: "/ocr-gemini",      end: false, icon: Zap,   label: { ar: "OCR جيميني",      en: "Gemini OCR" } },
-  { to: "/ocr-openrouter",  end: false, icon: Cloud, label: { ar: "OCR أوبن راوتر",  en: "OpenRouter OCR" } },
-  { to: "/ocr-groq",       end: false, icon: Zap,    label: { ar: "OCR جروك",          en: "Groq OCR" } },
-  { to: "/two-stage",      end: false, icon: GitCompare,    label: { ar: "مرحلتان",        en: "Two-Stage" } },
-  { to: "/assist",         end: false, icon: WandSparkles, label: { ar: "مساعد — Groq",   en: "Assist (Groq)" } },
-  { to: "/assist-claude",  end: false, icon: Bot,          label: { ar: "مساعد — كلود",   en: "Assist (Claude)" } },
-  { to: "/assist-ollama",  end: false, icon: Cpu,          label: { ar: "مساعد — أولاما", en: "Assist (Ollama)" } },
+  { to: "/",          end: true,  icon: PenLine,      label: { ar: "وثيقة جديدة",  en: "New Document" } },
+  { to: "/assist-en", end: false, icon: WandSparkles, label: { ar: "مساعد الذكاء", en: "AI Assistant" } },
+  { to: "/saved",     end: false, icon: Archive,      label: { ar: "السجلات",       en: "Records"      } },
 ];
 
+const STORAGE_KEY = "mawrid-sidebar-order";
+
+function loadOrder(): typeof NAV {
+  try {
+    const saved: string[] = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "");
+    if (!Array.isArray(saved)) return NAV;
+    const ordered = saved
+      .map(to => NAV.find(n => n.to === to))
+      .filter(Boolean) as typeof NAV;
+    // keep any new items not yet in storage
+    const missing = NAV.filter(n => !saved.includes(n.to));
+    return [...ordered, ...missing];
+  } catch {
+    return NAV;
+  }
+}
+
 export default function Sidebar({ dir, onToggleDir }: Props) {
+  const [items, setItems] = useState<typeof NAV>(loadOrder);
+  const [dragOver, setDragOver] = useState<number | null>(null);
+  const dragIndex = useRef<number | null>(null);
+
+  const handleDragStart = (i: number) => {
+    dragIndex.current = i;
+  };
+
+  const handleDragOver = (e: React.DragEvent, i: number) => {
+    e.preventDefault();
+    if (dragIndex.current === null || dragIndex.current === i) return;
+    setDragOver(i);
+    const next = [...items];
+    const [moved] = next.splice(dragIndex.current, 1);
+    next.splice(i, 0, moved);
+    dragIndex.current = i;
+    setItems(next);
+  };
+
+  const handleDragEnd = () => {
+    dragIndex.current = null;
+    setDragOver(null);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items.map(n => n.to)));
+  };
+
   return (
     <aside
       className={cn(
@@ -38,23 +73,39 @@ export default function Sidebar({ dir, onToggleDir }: Props) {
 
       {/* Nav items */}
       <nav className="flex-1 p-3 space-y-0.5">
-        {NAV.map(({ to, end, icon: Icon, label }) => (
-          <NavLink
+        {items.map(({ to, end, icon: Icon, label }, i) => (
+          <div
             key={to}
-            to={to}
-            end={end}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              )
-            }
+            draggable
+            onDragStart={() => handleDragStart(i)}
+            onDragOver={e => handleDragOver(e, i)}
+            onDragEnd={handleDragEnd}
+            className={cn(
+              "group flex items-center rounded-lg transition-all duration-150",
+              dragOver === i && dragIndex.current !== i ? "ring-2 ring-primary/30 bg-primary/5" : ""
+            )}
           >
-            <Icon className="w-4 h-4 shrink-0" />
-            {dir === "rtl" ? label.ar : label.en}
-          </NavLink>
+            {/* Drag handle */}
+            <div className="flex items-center justify-center w-5 shrink-0 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-40 transition-opacity ms-1">
+              <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
+            </div>
+
+            <NavLink
+              to={to}
+              end={end}
+              className={({ isActive }) =>
+                cn(
+                  "flex flex-1 items-center gap-3 px-2 py-2.5 rounded-lg text-sm font-medium transition-colors min-w-0",
+                  isActive
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )
+              }
+            >
+              <Icon className="w-4 h-4 shrink-0" />
+              <span className="truncate">{dir === "rtl" ? label.ar : label.en}</span>
+            </NavLink>
+          </div>
         ))}
       </nav>
 

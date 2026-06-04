@@ -5,107 +5,6 @@ export const api = axios.create({
   timeout: 30_000,
 });
 
-// ── Types (mirror backend schemas) ───────────────────────────────────────────
-
-export type JobStatus = "pending" | "running" | "completed" | "failed";
-
-export interface ExtractedField {
-  field_id: string;
-  value: string | null;
-  confidence: number;
-  low_confidence: boolean;
-}
-
-export interface StageResult {
-  name: string;
-  status: "waiting" | "running" | "done" | "failed";
-  latency_ms: number | null;
-  output_summary: string | null;
-}
-
-export interface PipelineResult {
-  doc_type: string;
-  combo: string;
-  stages: StageResult[];
-  fields: ExtractedField[];
-  confidence_avg: number;
-  estimated_cost_usd: number;
-  total_latency_ms: number;
-  mlflow_run_id: string | null;
-}
-
-export interface JobResponse {
-  job_id: string;
-  status: JobStatus;
-  combo: string;
-  filename: string;
-  result: PipelineResult | null;
-  error: string | null;
-}
-
-export interface ComboInfo {
-  name: string;
-  description: string;
-  ocr: string;
-  classifier: string;
-  extractor: string;
-  sends_images_to_cloud: boolean;
-  active: boolean;
-}
-
-export interface ComboListResponse {
-  combos: ComboInfo[];
-  active: string;
-}
-
-export interface ExperimentRun {
-  run_id: string;
-  combo: string;
-  doc_type: string;
-  num_fields: number;
-  fields_matched: number;
-  precision: number;
-  recall: number;
-  confidence_avg: number;
-  estimated_cost_usd: number;
-  latency_ms: number;
-  timestamp: string;
-  azure_di_model_id: string | null;
-  azure_pages_billed: number | null;
-  azure_confidence: number | null;
-}
-
-export interface ExperimentsResponse {
-  runs: ExperimentRun[];
-  total: number;
-}
-
-// ── API helpers ───────────────────────────────────────────────────────────────
-
-export const uploadDocument = (file: File) => {
-  const form = new FormData();
-  form.append("file", file);
-  return api.post<{ job_id: string; status: string; message: string }>(
-    "/documents/upload",
-    form,
-    { headers: { "Content-Type": "multipart/form-data" } }
-  );
-};
-
-export const getJob = (jobId: string) =>
-  api.get<JobResponse>(`/documents/${jobId}`);
-
-export const getCombos = () => api.get<ComboListResponse>("/combos");
-
-export const setCombo = (combo: string) =>
-  api.post<{ active: string; message: string }>("/combos/set", { combo });
-
-export const getExperiments = (limit = 100, offset = 0) =>
-  api.get<ExperimentsResponse>(`/experiments?limit=${limit}&offset=${offset}`);
-
-export const compareExperiments = (run_id_a: string, run_id_b: string) =>
-  api.post("/experiments/compare", { run_id_a, run_id_b });
-
 // ── Schema ────────────────────────────────────────────────────────────────────
 
 export interface SchemaField {
@@ -193,146 +92,7 @@ export const getSavedDocuments = (limit = 100, offset = 0) =>
 export const deleteSavedDocument = (id: string) =>
   api.delete(`/saved/${id}`);
 
-// ── OCR Stage ─────────────────────────────────────────────────────────────────
-
-export interface OcrDetection {
-  text: string;
-  confidence: number;
-  bbox: [number, number][];   // [[x1,y1],[x2,y2],[x3,y3],[x4,y4]]
-  page: number;
-  index: number;
-}
-
-export interface OcrPage {
-  image_b64: string;          // JPEG base64
-  width: number;
-  height: number;
-  detections: OcrDetection[];
-}
-
-export interface OcrResult {
-  text: string;
-  backend: string;
-  latency_ms: number;
-  pages: OcrPage[];
-}
-
-export const LOCAL_OCR_BACKENDS = ["paddleocr", "easyocr"] as const;
-export type LocalOcrBackend = (typeof LOCAL_OCR_BACKENDS)[number];
-
-// ── Vision OCR (Anthropic) ────────────────────────────────────────────────────
-
-export interface VisionOcrResult {
-  text: string;
-  model: string;
-  latency_ms: number;
-  page_images: string[];   // base64 JPEGs, one per page
-  input_tokens: number;
-  output_tokens: number;
-}
-
-export const getVisionModels = () =>
-  api.get<{ models: string[] }>("/ocr/vision/models");
-
-export const runVisionOcr = (file: File, model: string, prompt: string) => {
-  const form = new FormData();
-  form.append("file", file);
-  form.append("model", model);
-  form.append("prompt", prompt);
-  return api.post<VisionOcrResult>("/ocr/vision", form, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-};
-
-// ── Gemini Vision OCR ─────────────────────────────────────────────────────────
-
-export const getGeminiModels = () =>
-  api.get<{ models: string[] }>("/ocr/gemini/models");
-
-export const runGeminiOcr = (file: File, model: string, prompt: string) => {
-  const form = new FormData();
-  form.append("file", file);
-  form.append("model", model);
-  form.append("prompt", prompt);
-  return api.post<VisionOcrResult>("/ocr/gemini", form, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-};
-
-export const getOcrConfig = () =>
-  api.get<{ paddleocr: Record<string, unknown> }>("/ocr/config");
-
-// ── Azure Document Intelligence OCR ──────────────────────────────────────────
-
-export interface AzureOcrResult {
-  text: string;
-  model: string;
-  latency_ms: number;
-  page_images: string[];
-  pages_billed: number;
-}
-
-export const getAzureModels = () =>
-  api.get<{ models: string[] }>("/ocr/azure/models");
-
-export const runAzureOcr = (file: File, model: string) => {
-  const form = new FormData();
-  form.append("file", file);
-  form.append("model", model);
-  return api.post<AzureOcrResult>("/ocr/azure", form, {
-    headers: { "Content-Type": "multipart/form-data" },
-    timeout: 120_000,
-  });
-};
-
-// ── Groq Vision OCR ───────────────────────────────────────────────────────────
-
-export const getGroqModels = () =>
-  api.get<{ models: string[] }>("/ocr/groq/models");
-
-export const runGroqOcr = (file: File, model: string, prompt: string) => {
-  const form = new FormData();
-  form.append("file", file);
-  form.append("model", model);
-  form.append("prompt", prompt);
-  return api.post<VisionOcrResult>("/ocr/groq", form, {
-    headers: { "Content-Type": "multipart/form-data" },
-    timeout: 120_000,
-  });
-};
-
-// ── OpenRouter Vision OCR ─────────────────────────────────────────────────────
-
-export const getOpenRouterModels = () =>
-  api.get<{ models: string[] }>("/ocr/openrouter/models");
-
-export const runOpenRouterOcr = (file: File, model: string, prompt: string) => {
-  const form = new FormData();
-  form.append("file", file);
-  form.append("model", model);
-  form.append("prompt", prompt);
-  return api.post<VisionOcrResult>("/ocr/openrouter", form, {
-    headers: { "Content-Type": "multipart/form-data" },
-    timeout: 120_000,
-  });
-};
-
-export const runOcr = (
-  file: File,
-  backend: LocalOcrBackend,
-  params?: Record<string, unknown>,
-) => {
-  const form = new FormData();
-  form.append("file", file);
-  form.append("backend", backend);
-  if (params) form.append("params_json", JSON.stringify(params));
-  return api.post<OcrResult>("/ocr/run", form, {
-    headers: { "Content-Type": "multipart/form-data" },
-    timeout: 600_000,
-  });
-};
-
-// ── Two-Stage Pipeline ────────────────────────────────────────────────────────
+// ── Three-Stage Pipeline ──────────────────────────────────────────────────────
 
 export interface ThreeStageStage1 {
   raw_text:      string;
@@ -341,6 +101,7 @@ export interface ThreeStageStage1 {
   latency_ms:    number;
   input_tokens:  number;
   output_tokens: number;
+  prompt?:       string;
 }
 
 export interface ThreeStageStage2 {
@@ -352,6 +113,7 @@ export interface ThreeStageStage2 {
   latency_ms:          number;
   input_tokens:        number;
   output_tokens:       number;
+  prompt?:             string;
 }
 
 export interface ThreeStageStage3 {
@@ -360,6 +122,7 @@ export interface ThreeStageStage3 {
   latency_ms:    number;
   input_tokens:  number;
   output_tokens: number;
+  prompt?:       string;
 }
 
 export interface ThreeStageResult {
@@ -368,27 +131,27 @@ export interface ThreeStageResult {
   stage3: ThreeStageStage3;
 }
 
-export const getTwoStageModels = () =>
-  api.get<{ stage1: string[]; stage2: string[]; stage3: string[] }>("/two-stage/models");
-
 export const runTwoStage = (
   file: File,
   stage1_backend: string,
   stage2_backend: string,
   stage3_backend: string,
+  promptLang: "ar" | "en" | "en-ocr" = "ar",
 ) => {
   const form = new FormData();
   form.append("file",           file);
   form.append("stage1_backend", stage1_backend);
   form.append("stage2_backend", stage2_backend);
   form.append("stage3_backend", stage3_backend);
+  form.append("prompt_lang",    promptLang);
   return api.post<ThreeStageResult>("/two-stage/run", form, {
     headers: { "Content-Type": "multipart/form-data" },
     timeout: 180_000,
   });
 };
 
-// Derived UI types built from the schema
+// ── Derived UI types built from the schema ────────────────────────────────────
+
 export interface UIField {
   id: string;
   labelAr: string;
@@ -427,7 +190,6 @@ export function buildUICategories(schema: SchemaResponse): UICategory[] {
     });
   }
 
-  // _categories may be absent from older schema files — fall back to deriving from documents
   if (schema._categories) {
     return Object.entries(schema._categories).map(([catId, catInfo]) => ({
       id: catId,
