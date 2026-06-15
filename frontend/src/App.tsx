@@ -3,14 +3,17 @@ import { BrowserRouter, useLocation } from "react-router-dom";
 import ManualFillPage from "@/pages/ManualFillPage";
 import SavedRecordsPage from "@/pages/SavedRecordsPage";
 import AssistEnPage from "@/pages/AssistEnPage";
+import AssistClaudePage from "@/pages/AssistClaudePage";
 import Sidebar from "@/components/Sidebar";
+import { SchemaProvider } from "@/lib/schemaContext";
 
 type Dir = "rtl" | "ltr";
 
 const PAGES = [
-  { path: "/",          el: (dir: Dir) => <ManualFillPage dir={dir} /> },
-  { path: "/assist-en", el: (dir: Dir) => <AssistEnPage dir={dir} /> },
-  { path: "/saved",     el: (dir: Dir) => <SavedRecordsPage dir={dir} /> },
+  { path: "/",               el: (dir: Dir) => <ManualFillPage dir={dir} /> },
+  { path: "/assist-en",      el: (dir: Dir) => <AssistEnPage dir={dir} /> },
+  { path: "/assist-claude",  el: (dir: Dir) => <AssistClaudePage dir={dir} /> },
+  { path: "/saved",          el: (dir: Dir) => <SavedRecordsPage dir={dir} /> },
 ];
 
 function AppInner({ dir, onToggleDir }: { dir: Dir; onToggleDir: () => void }) {
@@ -41,8 +44,10 @@ export default function App() {
   };
 
   return (
-    <BrowserRouter>
-      <AppInner dir={dir} onToggleDir={toggleDir} />
-    </BrowserRouter>
+    <SchemaProvider>
+      <BrowserRouter>
+        <AppInner dir={dir} onToggleDir={toggleDir} />
+      </BrowserRouter>
+    </SchemaProvider>
   );
 }

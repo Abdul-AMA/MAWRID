@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: mawrid-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite+aiosqlite:///./mawrid.db
+      - key: GROQ_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SCHEMA_PASSWORD
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false

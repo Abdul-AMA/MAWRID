@@ -1,8 +1,10 @@
 import { useState, useCallback } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getSchema, saveDocument, buildUICategories, UIField, UICategory } from "@/lib/api";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { saveDocument, buildUICategories, UIField, UICategory } from "@/lib/api";
 import { Save, CheckCircle2, Loader2, FileText, ChevronDown, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSchema } from "@/lib/useSchema";
+import SchemaPasswordModal from "@/components/SchemaPasswordModal";
 
 interface Props { dir: "rtl" | "ltr" }
 
@@ -63,11 +65,7 @@ function SelectBox({
 export default function ManualFillPage({ dir }: Props) {
   const qc = useQueryClient();
 
-  const { data: schemaData, isLoading: schemaLoading } = useQuery({
-    queryKey: ["schema"],
-    queryFn:  () => getSchema().then(r => r.data),
-    staleTime: Infinity,
-  });
+  const { data: schemaData, isLoading: schemaLoading, needsPassword, handlePasswordSubmit } = useSchema();
 
   const categories: UICategory[] = schemaData ? buildUICategories(schemaData) : [];
 
@@ -86,10 +84,6 @@ export default function ManualFillPage({ dir }: Props) {
   const activeType = categories.flatMap(c => c.types).find(t => t.id === selectedType);
   const fields     = activeType?.fields ?? [];
 
-  // Types shown in the picker: all types when no filter, filtered when cat chosen
-  const visibleTypes = filterCat
-    ? (categories.find(c => c.id === filterCat)?.types ?? [])
-    : categories.flatMap(c => c.types);
 
   const handleFilterCatChange = (cat: string) => {
     setFilterCat(cat);
@@ -147,7 +141,10 @@ export default function ManualFillPage({ dir }: Props) {
   const canSave = !!selectedType && fields.length > 0 && !saved;
 
   return (
-    <div className="flex h-screen overflow-hidden" dir={dir}>
+    <div className="flex h-screen overflow-hidden relative" dir={dir}>
+
+      {/* Schema password modal */}
+      {needsPassword && <SchemaPasswordModal onSubmit={handlePasswordSubmit} />}
 
       {/* ── Left panel: type picker + file upload ──────────────────────── */}
       <div className="w-72 shrink-0 border-e bg-white flex flex-col h-screen overflow-hidden">
@@ -173,8 +170,8 @@ export default function ManualFillPage({ dir }: Props) {
             <>
               <SelectBox
                 label={dir === "rtl" ? "الفئة" : "Category"}
-                value={selectedCat}
-                onChange={handleCatChange}
+                value={filterCat}
+                onChange={handleFilterCatChange}
               >
                 <option value="">{dir === "rtl" ? "— اختر الفئة —" : "— Choose category —"}</option>
                 {categories.map(c => (
@@ -186,7 +183,7 @@ export default function ManualFillPage({ dir }: Props) {
                 label={dir === "rtl" ? "نوع الوثيقة" : "Document Type"}
                 value={selectedType}
                 onChange={handleTypeChange}
-                disabled={!selectedCat}
+                disabled={!filterCat}
               >
                 <option value="">{dir === "rtl" ? "— اختر النوع —" : "— Choose type —"}</option>
                 {activeCat?.types.map(t => (

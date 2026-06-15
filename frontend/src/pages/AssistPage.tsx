@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  runTwoStage, getSchema, buildUICategories, saveDocument,
+  runTwoStage, buildUICategories, saveDocument,
   UIField, UICategory,
 } from "@/lib/api";
 import {
@@ -12,6 +12,9 @@ import {
 } from "lucide-react";
 import { ThreeStageResult } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useSchemaCtx } from "@/lib/schemaContext";
+import { useSchema } from "@/lib/useSchema";
+import SchemaPasswordModal from "@/components/SchemaPasswordModal";
 
 interface Props {
   dir: "rtl" | "ltr"
@@ -241,12 +244,9 @@ export default function AssistPage({ dir, modelOverride, promptLang = "ar" }: Pr
   const model = modelOverride ?? GROQ_SCOUT;
 
   const qc = useQueryClient();
+  const { customToken } = useSchemaCtx();
+  const { data: schemaData, needsPassword, handlePasswordSubmit } = useSchema();
 
-  const { data: schemaData } = useQuery({
-    queryKey: ["schema"],
-    queryFn:  () => getSchema().then(r => r.data),
-    staleTime: Infinity,
-  });
   const categories: UICategory[] = useMemo(
     () => schemaData ? buildUICategories(schemaData) : [],
     [schemaData],
@@ -283,7 +283,7 @@ export default function AssistPage({ dir, modelOverride, promptLang = "ar" }: Pr
 
   // AI mutation
   const aiMutation = useMutation({
-    mutationFn: (f: File) => runTwoStage(f, model, model, model, promptLang).then(r => r.data),
+    mutationFn: (f: File) => runTwoStage(f, model, model, model, promptLang, customToken || undefined).then(r => r.data),
     onSuccess: data => {
       setLastResult(data);
       // Auto-detect category + docType from stage 2
@@ -383,6 +383,12 @@ export default function AssistPage({ dir, modelOverride, promptLang = "ar" }: Pr
   const canSave      = !!file && !!category && !!docType && !isAIActive && !saved;
   const pendingCount = Object.values(fieldAIStates).filter(s => s === "pending").length;
 
+  const isClaude = model.startsWith("claude/");
+  const providerLabel = isClaude ? "Claude" : "Groq";
+  const providerStyle = isClaude
+    ? "bg-violet-50 text-violet-700 border-violet-200"
+    : "bg-orange-50 text-orange-700 border-orange-200";
+
   return (
     <div className="flex h-screen overflow-hidden relative">
 
@@ -398,6 +404,9 @@ export default function AssistPage({ dir, modelOverride, promptLang = "ar" }: Pr
               <span className="text-sm font-medium truncate flex-1">{file.name}</span>
               <span className="text-xs text-muted-foreground shrink-0">
                 {(file.size / 1024).toFixed(0)} KB
+              </span>
+              <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0", providerStyle)}>
+                {providerLabel}
               </span>
             </div>
             <div className="flex-1 overflow-hidden">
@@ -695,6 +704,9 @@ export default function AssistPage({ dir, modelOverride, promptLang = "ar" }: Pr
           </div>
         )}
       </div>
+
+      {/* Schema password modal */}
+      {needsPassword && <SchemaPasswordModal onSubmit={handlePasswordSubmit} />}
 
       {/* Error toast */}
       {errorMsg && (

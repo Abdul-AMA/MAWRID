@@ -1,7 +1,9 @@
 import axios from "axios";
 
+const BACKEND = (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? "";
+
 export const api = axios.create({
-  baseURL: "/api",
+  baseURL: BACKEND ? `${BACKEND}/api` : "/api",
   timeout: 30_000,
 });
 
@@ -28,7 +30,19 @@ export interface SchemaResponse {
   documents: Record<string, SchemaDocument>;
 }
 
-export const getSchema = () => api.get<SchemaResponse>("/schema");
+export const getSchema = (opts?: { token?: string; password?: string }) => {
+  const params = opts?.token ? { token: opts.token } : {};
+  const headers = opts?.password ? { "X-Schema-Password": opts.password } : {};
+  return api.get<SchemaResponse>("/schema", { params, headers });
+};
+
+export const uploadSchema = (file: File) => {
+  const form = new FormData();
+  form.append("file", file);
+  return api.post<{ token: string; doc_count: number }>("/schema/upload", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
 
 // ── Saved documents ───────────────────────────────────────────────────────────
 
@@ -137,6 +151,7 @@ export const runTwoStage = (
   stage2_backend: string,
   stage3_backend: string,
   promptLang: "ar" | "en" | "en-ocr" = "ar",
+  schemaToken?: string,
 ) => {
   const form = new FormData();
   form.append("file",           file);
@@ -144,6 +159,7 @@ export const runTwoStage = (
   form.append("stage2_backend", stage2_backend);
   form.append("stage3_backend", stage3_backend);
   form.append("prompt_lang",    promptLang);
+  if (schemaToken) form.append("schema_token", schemaToken);
   return api.post<ThreeStageResult>("/two-stage/run", form, {
     headers: { "Content-Type": "multipart/form-data" },
     timeout: 180_000,

@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     # Upload
     max_upload_size_mb: int = 20
 
+    # Schema password — if set, GET /api/schema requires X-Schema-Password header
+    schema_password: str = ""
+
+    # CORS — comma-separated extra origins (e.g. your Vercel URL)
+    allowed_origins: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

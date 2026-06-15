@@ -1,7 +1,9 @@
 import { useState, useRef } from "react";
 import { NavLink } from "react-router-dom";
-import { PenLine, Archive, Globe, WandSparkles, GripVertical } from "lucide-react";
+import { PenLine, Archive, Globe, Zap, Sparkles, GripVertical, DatabaseZap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSchemaCtx } from "@/lib/schemaContext";
+import SchemaSettings from "./SchemaSettings";
 
 interface Props {
   dir: "rtl" | "ltr";
@@ -9,9 +11,10 @@ interface Props {
 }
 
 const NAV = [
-  { to: "/",          end: true,  icon: PenLine,      label: { ar: "وثيقة جديدة",  en: "New Document" } },
-  { to: "/assist-en", end: false, icon: WandSparkles, label: { ar: "مساعد الذكاء", en: "AI Assistant" } },
-  { to: "/saved",     end: false, icon: Archive,      label: { ar: "السجلات",       en: "Records"      } },
+  { to: "/",             end: true,  icon: PenLine,   label: { ar: "وثيقة جديدة", en: "New Document" }, badge: null },
+  { to: "/assist-en",    end: false, icon: Zap,       label: { ar: "Groq",         en: "Groq"         }, badge: { text: "Groq",   color: "bg-orange-100 text-orange-600" } },
+  { to: "/assist-claude",end: false, icon: Sparkles,  label: { ar: "Claude",       en: "Claude"       }, badge: { text: "Claude", color: "bg-violet-100 text-violet-600" } },
+  { to: "/saved",        end: false, icon: Archive,   label: { ar: "السجلات",      en: "Records"      }, badge: null },
 ];
 
 const STORAGE_KEY = "mawrid-sidebar-order";
@@ -35,6 +38,8 @@ export default function Sidebar({ dir, onToggleDir }: Props) {
   const [items, setItems] = useState<typeof NAV>(loadOrder);
   const [dragOver, setDragOver] = useState<number | null>(null);
   const dragIndex = useRef<number | null>(null);
+  const [showSchemaSettings, setShowSchemaSettings] = useState(false);
+  const { source } = useSchemaCtx();
 
   const handleDragStart = (i: number) => {
     dragIndex.current = i;
@@ -73,7 +78,7 @@ export default function Sidebar({ dir, onToggleDir }: Props) {
 
       {/* Nav items */}
       <nav className="flex-1 p-3 space-y-0.5">
-        {items.map(({ to, end, icon: Icon, label }, i) => (
+        {items.map(({ to, end, icon: Icon, label, badge }, i) => (
           <div
             key={to}
             draggable
@@ -95,7 +100,7 @@ export default function Sidebar({ dir, onToggleDir }: Props) {
               end={end}
               className={({ isActive }) =>
                 cn(
-                  "flex flex-1 items-center gap-3 px-2 py-2.5 rounded-lg text-sm font-medium transition-colors min-w-0",
+                  "flex flex-1 items-center gap-2 px-2 py-2.5 rounded-lg text-sm font-medium transition-colors min-w-0",
                   isActive
                     ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -103,14 +108,29 @@ export default function Sidebar({ dir, onToggleDir }: Props) {
               }
             >
               <Icon className="w-4 h-4 shrink-0" />
-              <span className="truncate">{dir === "rtl" ? label.ar : label.en}</span>
+              <span className="truncate flex-1">{dir === "rtl" ? label.ar : label.en}</span>
+              {badge && (
+                <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-md shrink-0", badge.color)}>
+                  {badge.text}
+                </span>
+              )}
             </NavLink>
           </div>
         ))}
       </nav>
 
-      {/* Language toggle */}
-      <div className="p-3 border-t">
+      {/* Schema settings + Language toggle */}
+      <div className="p-3 border-t space-y-0.5">
+        <button
+          onClick={() => setShowSchemaSettings(true)}
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        >
+          <DatabaseZap className="w-4 h-4 shrink-0" />
+          <span className="truncate">{dir === "rtl" ? "إعدادات المخطط" : "Schema"}</span>
+          {source === "custom" && (
+            <span className="ms-auto w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+          )}
+        </button>
         <button
           onClick={onToggleDir}
           className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
@@ -119,6 +139,8 @@ export default function Sidebar({ dir, onToggleDir }: Props) {
           {dir === "rtl" ? "English" : "العربية"}
         </button>
       </div>
+
+      {showSchemaSettings && <SchemaSettings onClose={() => setShowSchemaSettings(false)} />}
     </aside>
   );
 }

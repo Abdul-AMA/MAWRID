@@ -4,14 +4,14 @@ import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from typing import Annotated
+from typing import Annotated, Optional
 
 from config.settings import get_settings
 from database.engine import get_db, init_db
@@ -31,9 +31,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_settings = get_settings()
+_origins = ["http://localhost:5173", "http://localhost:3000"]
+if _settings.allowed_origins:
+    _origins += [o.strip() for o in _settings.allowed_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -47,13 +52,52 @@ DB = Annotated[AsyncSession, Depends(get_db)]
 _SCHEMA_PATH = Path(__file__).parent / "config" / "schema_v2.json"
 _schema_cache: dict | None = None
 
+# In-memory store for user-uploaded schemas keyed by token
+_custom_schemas: dict[str, dict] = {}
+
 
 @app.get("/api/schema")
-async def get_schema():
+async def get_schema(
+    token: Optional[str] = None,
+    x_schema_password: Optional[str] = Header(default=None),
+):
+    # Custom schema path — no password needed
+    if token:
+        schema = _custom_schemas.get(token)
+        if not schema:
+            raise HTTPException(status_code=404, detail="Schema token not found or expired")
+        return schema
+
+    # Default schema — password-protected if SCHEMA_PASSWORD is set
+    settings = get_settings()
+    if settings.schema_password:
+        if x_schema_password != settings.schema_password:
+            raise HTTPException(status_code=401, detail="Invalid schema password")
+
     global _schema_cache
     if _schema_cache is None:
         _schema_cache = json.loads(_SCHEMA_PATH.read_text(encoding="utf-8"))
     return _schema_cache
+
+
+@app.post("/api/schema/upload")
+async def upload_schema(file: UploadFile = File(...)):
+    """Accept a custom JSON schema file and return a token to use it."""
+    if not file.filename or not file.filename.endswith(".json"):
+        raise HTTPException(status_code=400, detail="Only .json files are accepted")
+
+    raw = await file.read()
+    try:
+        schema = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid JSON: {exc}")
+
+    if "documents" not in schema:
+        raise HTTPException(status_code=422, detail="Schema must have a 'documents' key")
+
+    token = str(uuid.uuid4())
+    _custom_schemas[token] = schema
+    return {"token": token, "doc_count": len(schema.get("documents", {}))}
 
 
 # ── Two-Stage Pipeline ────────────────────────────────────────────────────────
@@ -87,6 +131,7 @@ async def run_two_stage(
     stage2_backend: str = Form(default=GROQ_SCOUT),
     stage3_backend: str = Form(default=GROQ_SCOUT),
     prompt_lang: str = Form(default="ar"),
+    schema_token: str = Form(default=""),
 ):
     import asyncio
     from pipeline.vision_stage1 import run_sync as s1_run
@@ -121,8 +166,13 @@ async def run_two_stage(
     global _schema_cache
     if _schema_cache is None:
         _schema_cache = json.loads(_SCHEMA_PATH.read_text(encoding="utf-8"))
+
+    active_schema = _custom_schemas.get(schema_token) if schema_token else None
+    if active_schema is None:
+        active_schema = _schema_cache
+
     doc_type = s2["document_type"]
-    doc_def  = _schema_cache.get("documents", {}).get(doc_type, {})
+    doc_def  = active_schema.get("documents", {}).get(doc_type, {})
     s2["document_type_label"] = doc_def.get("label_ar", doc_type)
     s2["field_count"]         = len(doc_def.get("fields", []))
 
