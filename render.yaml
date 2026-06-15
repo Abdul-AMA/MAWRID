@@ -2,8 +2,6 @@ services:
   - type: web
     name: mawrid-backend
     runtime: docker
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
     plan: free
     healthCheckPath: /health
     envVars:
