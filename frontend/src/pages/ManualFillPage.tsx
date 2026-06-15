@@ -4,7 +4,6 @@ import { saveDocument, buildUICategories, UIField, UICategory } from "@/lib/api"
 import { Save, CheckCircle2, Loader2, FileText, ChevronDown, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSchema } from "@/lib/useSchema";
-import SchemaPasswordModal from "@/components/SchemaPasswordModal";
 
 interface Props { dir: "rtl" | "ltr" }
 
@@ -65,7 +64,7 @@ function SelectBox({
 export default function ManualFillPage({ dir }: Props) {
   const qc = useQueryClient();
 
-  const { data: schemaData, isLoading: schemaLoading, needsPassword, handlePasswordSubmit } = useSchema();
+  const { data: schemaData, isLoading: schemaLoading } = useSchema();
 
   const categories: UICategory[] = schemaData ? buildUICategories(schemaData) : [];
 
@@ -142,9 +141,6 @@ export default function ManualFillPage({ dir }: Props) {
 
   return (
     <div className="flex h-screen overflow-hidden relative" dir={dir}>
-
-      {/* Schema password modal */}
-      {needsPassword && <SchemaPasswordModal onSubmit={handlePasswordSubmit} />}
 
       {/* ── Left panel: type picker + file upload ──────────────────────── */}
       <div className="w-72 shrink-0 border-e bg-white flex flex-col h-screen overflow-hidden">

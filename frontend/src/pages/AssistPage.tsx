@@ -14,7 +14,6 @@ import { ThreeStageResult } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useSchemaCtx } from "@/lib/schemaContext";
 import { useSchema } from "@/lib/useSchema";
-import SchemaPasswordModal from "@/components/SchemaPasswordModal";
 
 interface Props {
   dir: "rtl" | "ltr"
@@ -245,7 +244,7 @@ export default function AssistPage({ dir, modelOverride, promptLang = "ar" }: Pr
 
   const qc = useQueryClient();
   const { customToken } = useSchemaCtx();
-  const { data: schemaData, needsPassword, handlePasswordSubmit } = useSchema();
+  const { data: schemaData } = useSchema();
 
   const categories: UICategory[] = useMemo(
     () => schemaData ? buildUICategories(schemaData) : [],
@@ -704,9 +703,6 @@ export default function AssistPage({ dir, modelOverride, promptLang = "ar" }: Pr
           </div>
         )}
       </div>
-
-      {/* Schema password modal */}
-      {needsPassword && <SchemaPasswordModal onSubmit={handlePasswordSubmit} />}
 
       {/* Error toast */}
       {errorMsg && (

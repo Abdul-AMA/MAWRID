@@ -4,30 +4,17 @@ export type SchemaSource = "default" | "custom";
 
 interface SchemaContextValue {
   source: SchemaSource;
-  password: string;        // for default schema (persisted in sessionStorage)
-  customToken: string;     // token returned after uploading a custom schema
-  customName: string;      // display name for the uploaded file
-  setPassword: (p: string) => void;
+  customToken: string;
+  customName: string;
   setCustomSchema: (token: string, name: string) => void;
   clearCustomSchema: () => void;
 }
 
 const SchemaContext = createContext<SchemaContextValue | null>(null);
 
-const SESSION_KEY = "mawrid_schema_pwd";
-
 export function SchemaProvider({ children }: { children: ReactNode }) {
-  const [password, _setPassword] = useState<string>(
-    () => sessionStorage.getItem(SESSION_KEY) ?? ""
-  );
   const [customToken, setCustomToken] = useState("");
   const [customName, setCustomName] = useState("");
-
-  const setPassword = useCallback((p: string) => {
-    _setPassword(p);
-    if (p) sessionStorage.setItem(SESSION_KEY, p);
-    else sessionStorage.removeItem(SESSION_KEY);
-  }, []);
 
   const setCustomSchema = useCallback((token: string, name: string) => {
     setCustomToken(token);
@@ -42,7 +29,7 @@ export function SchemaProvider({ children }: { children: ReactNode }) {
   const source: SchemaSource = customToken ? "custom" : "default";
 
   return (
-    <SchemaContext.Provider value={{ source, password, customToken, customName, setPassword, setCustomSchema, clearCustomSchema }}>
+    <SchemaContext.Provider value={{ source, customToken, customName, setCustomSchema, clearCustomSchema }}>
       {children}
     </SchemaContext.Provider>
   );

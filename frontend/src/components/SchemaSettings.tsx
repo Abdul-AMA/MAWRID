@@ -1,15 +1,13 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { uploadSchema } from "@/lib/api";
 import { useSchemaCtx } from "@/lib/schemaContext";
-import { Upload, X, Lock, FileJson, CheckCircle2, AlertCircle } from "lucide-react";
+import { Upload, X, FileJson, CheckCircle2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function SchemaSettings({ onClose }: { onClose: () => void }) {
   const ctx = useSchemaCtx();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [pwdInput, setPwdInput] = useState(ctx.password);
-  const [pwdSaved, setPwdSaved] = useState(false);
 
   const uploadMut = useMutation({
     mutationFn: (file: File) => uploadSchema(file).then(r => r.data),
@@ -24,12 +22,6 @@ export default function SchemaSettings({ onClose }: { onClose: () => void }) {
     e.target.value = "";
   }
 
-  function savePwd() {
-    ctx.setPassword(pwdInput);
-    setPwdSaved(true);
-    setTimeout(() => setPwdSaved(false), 2000);
-  }
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 mx-4">
@@ -40,34 +32,6 @@ export default function SchemaSettings({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        {/* ── Password for built-in schema ── */}
-        <section className="mb-6">
-          <div className="flex items-center gap-2 mb-2">
-            <Lock size={15} className="text-indigo-500" />
-            <span className="text-sm font-medium text-gray-800">كلمة مرور المخطط الرسمي</span>
-          </div>
-          <p className="text-xs text-gray-500 mb-3">
-            إذا كان المخطط الرسمي محميًا بكلمة مرور، أدخلها هنا. تُحفظ في الجلسة الحالية فقط.
-          </p>
-          <div className="flex gap-2">
-            <input
-              type="password"
-              value={pwdInput}
-              onChange={e => setPwdInput(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && savePwd()}
-              placeholder="كلمة المرور..."
-              className="flex-1 px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
-            />
-            <button
-              onClick={savePwd}
-              className="px-3 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              {pwdSaved ? <CheckCircle2 size={15} /> : "حفظ"}
-            </button>
-          </div>
-        </section>
-
-        {/* ── Custom schema upload ── */}
         <section>
           <div className="flex items-center gap-2 mb-2">
             <FileJson size={15} className="text-emerald-500" />
@@ -106,13 +70,7 @@ export default function SchemaSettings({ onClose }: { onClose: () => void }) {
             </button>
           )}
 
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".json"
-            className="hidden"
-            onChange={handleFile}
-          />
+          <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleFile} />
 
           {uploadMut.isError && (
             <div className="flex items-center gap-2 mt-2 text-xs text-red-600">

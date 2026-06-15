@@ -4,7 +4,7 @@ import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select, func
@@ -57,22 +57,12 @@ _custom_schemas: dict[str, dict] = {}
 
 
 @app.get("/api/schema")
-async def get_schema(
-    token: Optional[str] = None,
-    x_schema_password: Optional[str] = Header(default=None),
-):
-    # Custom schema path — no password needed
+async def get_schema(token: Optional[str] = None):
     if token:
         schema = _custom_schemas.get(token)
         if not schema:
             raise HTTPException(status_code=404, detail="Schema token not found or expired")
         return schema
-
-    # Default schema — password-protected if SCHEMA_PASSWORD is set
-    settings = get_settings()
-    if settings.schema_password:
-        if x_schema_password != settings.schema_password:
-            raise HTTPException(status_code=401, detail="Invalid schema password")
 
     global _schema_cache
     if _schema_cache is None:
