@@ -8,7 +8,7 @@ import {
   Upload, Loader2, FileText, RotateCcw,
   Save, CheckCircle2, Check, X, Sparkles,
   ChevronDown, ChevronUp, Cpu, Coins, Clock, Eye, Tag, AlignLeft,
-  AlertCircle,
+  AlertCircle, DollarSign,
 } from "lucide-react";
 import { ThreeStageResult } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -53,6 +53,29 @@ function FieldInput({
   return <input type="text" value={value} onChange={e => onChange(e.target.value)} disabled={disabled} className={base} />;
 }
 
+// ── Cost helpers ──────────────────────────────────────────────────────────────
+
+const PRICING: Record<string, { in: number; out: number }> = {
+  "claude-sonnet-4-6":  { in: 3.00,  out: 15.00 },
+  "claude-haiku-4-5":   { in: 1.00,  out: 5.00  },
+  "llama-4-scout":      { in: 0.11,  out: 0.34  },
+};
+
+function calcCost(model: string, inputTokens: number, outputTokens: number): number {
+  const m = model.replace(/^[^/]+\//, "").toLowerCase();
+  const key = Object.keys(PRICING).find(k => m.includes(k));
+  if (!key) return 0;
+  const p = PRICING[key];
+  return (inputTokens / 1_000_000) * p.in + (outputTokens / 1_000_000) * p.out;
+}
+
+function fmtUSD(n: number): string {
+  if (n === 0) return "$0";
+  if (n < 0.0001) return "<$0.0001";
+  if (n < 0.01) return `$${n.toFixed(4)}`;
+  return `$${n.toFixed(2)}`;
+}
+
 // ── PipelineDetails ───────────────────────────────────────────────────────────
 
 const STAGE_META = [
@@ -74,6 +97,10 @@ function PipelineDetails({ result, dir }: { result: ThreeStageResult; dir: "rtl"
     result.stage1.latency_ms + result.stage2.latency_ms + result.stage3.latency_ms
   );
 
+  const totalCost = stages.reduce(
+    (sum, { data }) => sum + calcCost(data.model, data.input_tokens, data.output_tokens), 0
+  );
+
   return (
     <div className="border-t pt-4 space-y-2">
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
@@ -83,6 +110,7 @@ function PipelineDetails({ result, dir }: { result: ThreeStageResult; dir: "rtl"
       {stages.map(({ key, icon: Icon, color, label, data }) => {
         const isOpen  = open === key;
         const tokens  = data.input_tokens + data.output_tokens;
+        const cost    = calcCost(data.model, data.input_tokens, data.output_tokens);
         const modelShort = data.model.split("/").slice(1).join("/").replace(/:.*$/, "") || data.model;
 
         return (
@@ -110,6 +138,11 @@ function PipelineDetails({ result, dir }: { result: ThreeStageResult; dir: "rtl"
               <span className="flex items-center gap-1 text-[10px] text-muted-foreground shrink-0">
                 <Clock className="w-2.5 h-2.5" />{Math.round(data.latency_ms)}ms
               </span>
+              {cost > 0 && (
+                <span className="flex items-center gap-0.5 text-[10px] text-emerald-600 shrink-0 font-mono">
+                  <DollarSign className="w-2.5 h-2.5" />{fmtUSD(cost).slice(1)}
+                </span>
+              )}
               {isOpen
                 ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                 : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
@@ -205,17 +238,24 @@ function PipelineDetails({ result, dir }: { result: ThreeStageResult; dir: "rtl"
         );
       })}
 
-      {/* Total time footer */}
+      {/* Total time + cost footer */}
       <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-muted/40 border mt-1">
         <span className="text-xs font-semibold text-muted-foreground">
-          {dir === "rtl" ? "الوقت الكلي" : "Total time"}
+          {dir === "rtl" ? "الإجمالي" : "Total"}
         </span>
-        <span className="flex items-center gap-1.5 text-sm font-bold tabular-nums text-foreground">
-          <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-          {totalMs >= 1000
-            ? `${(totalMs / 1000).toFixed(2)}s`
-            : `${totalMs}ms`}
-        </span>
+        <div className="flex items-center gap-3">
+          {totalCost > 0 && (
+            <span className="flex items-center gap-0.5 text-xs font-bold font-mono text-emerald-600">
+              <DollarSign className="w-3 h-3" />{fmtUSD(totalCost).slice(1)}
+            </span>
+          )}
+          <span className="flex items-center gap-1.5 text-sm font-bold tabular-nums text-foreground">
+            <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+            {totalMs >= 1000
+              ? `${(totalMs / 1000).toFixed(2)}s`
+              : `${totalMs}ms`}
+          </span>
+        </div>
       </div>
     </div>
   );
