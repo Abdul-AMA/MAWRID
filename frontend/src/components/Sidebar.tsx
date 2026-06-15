@@ -12,8 +12,9 @@ interface Props {
 
 const NAV = [
   { to: "/",             end: true,  icon: PenLine,   label: { ar: "وثيقة جديدة", en: "New Document" }, badge: null },
-  { to: "/assist-en",    end: false, icon: Zap,       label: { ar: "Groq",         en: "Groq"         }, badge: { text: "Groq",   color: "bg-orange-100 text-orange-600" } },
-  { to: "/assist-claude",end: false, icon: Sparkles,  label: { ar: "Claude",       en: "Claude"       }, badge: { text: "Claude", color: "bg-violet-100 text-violet-600" } },
+  { to: "/assist-en",         end: false, icon: Zap,      label: { ar: "Groq",         en: "Groq"        }, badge: { text: "Groq",   color: "bg-orange-100 text-orange-600" } },
+  { to: "/assist-claude",     end: false, icon: Sparkles, label: { ar: "Claude",       en: "Claude"      }, badge: { text: "Sonnet", color: "bg-violet-100 text-violet-600" } },
+  { to: "/assist-claude-fast",end: false, icon: Sparkles, label: { ar: "Claude سريع",  en: "Claude Fast" }, badge: { text: "Haiku",  color: "bg-teal-100 text-teal-600"   } },
   { to: "/saved",        end: false, icon: Archive,   label: { ar: "السجلات",      en: "Records"      }, badge: null },
 ];
 

@@ -4,6 +4,7 @@ import ManualFillPage from "@/pages/ManualFillPage";
 import SavedRecordsPage from "@/pages/SavedRecordsPage";
 import AssistEnPage from "@/pages/AssistEnPage";
 import AssistClaudePage from "@/pages/AssistClaudePage";
+import AssistClaudeHaikuPage from "@/pages/AssistClaudeHaikuPage";
 import Sidebar from "@/components/Sidebar";
 import { SchemaProvider } from "@/lib/schemaContext";
 
@@ -12,7 +13,8 @@ type Dir = "rtl" | "ltr";
 const PAGES = [
   { path: "/",               el: (dir: Dir) => <ManualFillPage dir={dir} /> },
   { path: "/assist-en",      el: (dir: Dir) => <AssistEnPage dir={dir} /> },
-  { path: "/assist-claude",  el: (dir: Dir) => <AssistClaudePage dir={dir} /> },
+  { path: "/assist-claude",       el: (dir: Dir) => <AssistClaudePage dir={dir} /> },
+  { path: "/assist-claude-fast",  el: (dir: Dir) => <AssistClaudeHaikuPage dir={dir} /> },
   { path: "/saved",          el: (dir: Dir) => <SavedRecordsPage dir={dir} /> },
 ];
 

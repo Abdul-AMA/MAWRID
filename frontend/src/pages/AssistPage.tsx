@@ -18,6 +18,7 @@ import { useSchema } from "@/lib/useSchema";
 interface Props {
   dir: "rtl" | "ltr"
   modelOverride?: string
+  stage1ModelOverride?: string  // OCR stage — defaults to modelOverride
   promptLang?: "ar" | "en" | "en-ocr"
 }
 type AIPhase = "idle" | "loading" | "filling" | "done";
@@ -222,7 +223,7 @@ function PipelineDetails({ result, dir }: { result: ThreeStageResult; dir: "rtl"
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-export default function AssistPage({ dir, modelOverride, promptLang = "ar" }: Props) {
+export default function AssistPage({ dir, modelOverride, stage1ModelOverride, promptLang = "ar" }: Props) {
   const [file, setFile]       = useState<File | null>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [ready, setReady]     = useState(false);
@@ -240,7 +241,8 @@ export default function AssistPage({ dir, modelOverride, promptLang = "ar" }: Pr
   const [fillProgress, setFillProgress]   = useState(0);
   const [lastResult, setLastResult]       = useState<ThreeStageResult | null>(null);
   const [errorMsg, setErrorMsg]           = useState<string | null>(null);
-  const model = modelOverride ?? GROQ_SCOUT;
+  const model        = modelOverride ?? GROQ_SCOUT;
+  const stage1Model  = stage1ModelOverride ?? model;
 
   const qc = useQueryClient();
   const { customToken } = useSchemaCtx();
@@ -282,7 +284,7 @@ export default function AssistPage({ dir, modelOverride, promptLang = "ar" }: Pr
 
   // AI mutation
   const aiMutation = useMutation({
-    mutationFn: (f: File) => runTwoStage(f, model, model, model, promptLang, customToken || undefined).then(r => r.data),
+    mutationFn: (f: File) => runTwoStage(f, stage1Model, model, model, promptLang, customToken || undefined).then(r => r.data),
     onSuccess: data => {
       setLastResult(data);
       // Auto-detect category + docType from stage 2
@@ -383,7 +385,10 @@ export default function AssistPage({ dir, modelOverride, promptLang = "ar" }: Pr
   const pendingCount = Object.values(fieldAIStates).filter(s => s === "pending").length;
 
   const isClaude = model.startsWith("claude/");
-  const providerLabel = isClaude ? "Claude" : "Groq";
+  const isSplitPipeline = stage1Model !== model;
+  const providerLabel = isSplitPipeline
+    ? "Haiku + Sonnet"
+    : isClaude ? "Claude" : "Groq";
   const providerStyle = isClaude
     ? "bg-violet-50 text-violet-700 border-violet-200"
     : "bg-orange-50 text-orange-700 border-orange-200";
