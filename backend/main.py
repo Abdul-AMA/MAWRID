@@ -92,7 +92,7 @@ async def upload_schema(file: UploadFile = File(...)):
 
 # ── Two-Stage Pipeline ────────────────────────────────────────────────────────
 
-GROQ_SCOUT    = "groq/meta-llama/llama-4-scout-17b-16e-instruct"
+GROQ_SCOUT    = "openai/gpt-oss-120b"
 CLAUDE_SONNET = "claude/claude-sonnet-4-6"
 OLLAMA_VL     = "ollama/qwen2.5vl:3b"
 OLLAMA_TEXT   = "ollama/qwen2.5:3b"
