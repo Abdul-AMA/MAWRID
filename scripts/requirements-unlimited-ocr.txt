@@ -1,0 +1,15 @@
+# Pinned per the baidu/Unlimited-OCR model card — its vendored modeling code
+# (modeling_unlimitedocr.py, modeling_deepseekv2.py, deepencoder.py) is
+# written against these versions and is not guaranteed to work under
+# transformers 5.x, which the project's main .venv already has.
+torch==2.10.0
+torchvision==0.25.0
+transformers==4.57.1
+accelerate
+Pillow
+einops
+pymupdf
+psutil
+addict
+matplotlib
+easydict

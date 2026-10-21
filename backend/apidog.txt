@@ -1,0 +1,330 @@
+Step 1 — Start the Server
+
+  Run this in your terminal (keep it running), from backend/:
+
+  uvicorn main:app --reload --port 8000
+
+  Your base URL is: http://127.0.0.1:8000
+
+  Note: this is the SAME apidog collection as
+  ~/coding/laravel-api-mawrid/apidog.txt — every request below is byte-for-byte
+  the same Method/URL/Body you'd send to the Laravel API. Only the base URL
+  changes (Laravel used port 8000 too, so if you're switching between the two,
+  just make sure only one server is running on that port at a time).
+
+  This Python backend supports more provider prefixes than the Laravel one:
+  groq/<model>, gemini/<model> (both APIs have), plus claude/<model>,
+  openrouter/<model>, ollama/<model> (local, no key needed).
+
+  ---
+  GET /api/mawrid/health — Simplest test first
+
+  ┌────────┬─────────────────────────────────────────┐
+  │ Field  │                  Value                   │
+  ├────────┼─────────────────────────────────────────┤
+  │ Method │ GET                                      │
+  ├────────┼─────────────────────────────────────────┤
+  │ URL    │ http://127.0.0.1:8000/api/mawrid/health  │
+  └────────┴─────────────────────────────────────────┘
+
+  Expected response:
+  { "status": "ok" }
+
+  ---
+  GET /api/mawrid/schema — Check the 91 doc types loaded
+
+  ┌────────┬─────────────────────────────────────────┐
+  │ Field  │                  Value                   │
+  ├────────┼─────────────────────────────────────────┤
+  │ Method │ GET                                      │
+  ├────────┼─────────────────────────────────────────┤
+  │ URL    │ http://127.0.0.1:8000/api/mawrid/schema  │
+  └────────┴─────────────────────────────────────────┘
+
+  Expected: a large JSON with _meta, _categories, documents keys.
+
+  ---
+  POST /api/mawrid/pipeline/run — Full pipeline (all 3 stages, up to 3 LLM calls)
+
+  ┌───────────┬────────────────────────────────────────────────────────┐
+  │   Field   │                         Value                          │
+  ├───────────┼────────────────────────────────────────────────────────┤
+  │ Method    │ POST                                                   │
+  ├───────────┼────────────────────────────────────────────────────────┤
+  │ URL       │ http://127.0.0.1:8000/api/mawrid/pipeline/run          │
+  ├───────────┼────────────────────────────────────────────────────────┤
+  │ Body type │ form-data (not JSON — because you're uploading a file) │
+  └───────────┴────────────────────────────────────────────────────────┘
+
+  Body fields:
+
+  ┌────────────────┬──────┬──────────────────────────────────────────────────┐
+  │      Key        │ Type │                     Value                       │
+  ├────────────────┼──────┼──────────────────────────────────────────────────┤
+  │ file            │ File │ pick any PDF or image from your computer        │
+  ├────────────────┼──────┼──────────────────────────────────────────────────┤
+  │ stage1_backend  │ Text │ groq/meta-llama/llama-4-scout-17b-16e-instruct  │
+  ├────────────────┼──────┼──────────────────────────────────────────────────┤
+  │ stage2_backend  │ Text │ (optional — defaults to stage1_backend)          │
+  ├────────────────┼──────┼──────────────────────────────────────────────────┤
+  │ stage3_backend  │ Text │ (optional — defaults to stage1_backend)          │
+  ├────────────────┼──────┼──────────────────────────────────────────────────┤
+  │ document_type   │ Text │ (optional — skips stage 2 if you already know it)│
+  ├────────────────┼──────┼──────────────────────────────────────────────────┤
+  │ prompt_lang     │ Text │ ar                                              │
+  └────────────────┴──────┴──────────────────────────────────────────────────┘
+
+  Expected response (takes 10–30 seconds):
+  {
+    "stage1": { "raw_text": "...", "model": "...", "latency_ms": 1200, "input_tokens": ..., "output_tokens": ..., "page_images": ["<base64 jpeg>", ...], "prompt": "..." },
+    "stage2": { "document_type": "شهادة_ميلاد", "document_type_label": "شهادة ميلاد", "confidence": "high", "category": "personal_documents", "category_label": "...", "field_count": 9 },
+    "stage3": { "fields": { "الاسم": "محمد", ... }, "latency_ms": ... }
+  }
+
+  Note: page_images / input_tokens / output_tokens / prompt / category_label
+  are extra fields the Laravel API doesn't return — ignore them if you don't
+  need them, everything else matches.
+
+  ---
+  POST /api/mawrid/pipeline/stage1 — OCR only (1 vision LLM call)
+
+  ┌───────────┬────────────────────────────────────────────────────────┐
+  │   Field   │                         Value                          │
+  ├───────────┼────────────────────────────────────────────────────────┤
+  │ Method    │ POST                                                   │
+  ├───────────┼────────────────────────────────────────────────────────┤
+  │ URL       │ http://127.0.0.1:8000/api/mawrid/pipeline/stage1       │
+  ├───────────┼────────────────────────────────────────────────────────┤
+  │ Body type │ form-data                                              │
+  └───────────┴────────────────────────────────────────────────────────┘
+
+  Body fields:
+
+  ┌────────────────┬──────┬──────────────────────────────────────────────────┐
+  │      Key        │ Type │                     Value                       │
+  ├────────────────┼──────┼──────────────────────────────────────────────────┤
+  │ file            │ File │ pick any PDF or image                           │
+  ├────────────────┼──────┼──────────────────────────────────────────────────┤
+  │ stage1_backend  │ Text │ groq/meta-llama/llama-4-scout-17b-16e-instruct  │
+  ├────────────────┼──────┼──────────────────────────────────────────────────┤
+  │ prompt_lang     │ Text │ ar                                              │
+  └────────────────┴──────┴──────────────────────────────────────────────────┘
+
+  Expected response:
+  {
+    "raw_text": "النص المستخرج...",
+    "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+    "latency_ms": 5000,
+    "input_tokens": 1100,
+    "output_tokens": 800,
+    "page_images": ["<base64 jpeg>", ...],
+    "prompt": "You are an OCR system specialized in..."
+  }
+
+  Copy the raw_text value — you will paste it into stage2 and stage3.
+
+  ---
+  POST /api/mawrid/pipeline/stage2 — Classification only (1 text LLM call)
+
+  ┌───────────┬────────────────────────────────────────────────────────┐
+  │   Field   │                         Value                          │
+  ├───────────┼────────────────────────────────────────────────────────┤
+  │ Method    │ POST                                                   │
+  ├───────────┼────────────────────────────────────────────────────────┤
+  │ URL       │ http://127.0.0.1:8000/api/mawrid/pipeline/stage2       │
+  ├───────────┼────────────────────────────────────────────────────────┤
+  │ Body type │ JSON                                                   │
+  └───────────┴────────────────────────────────────────────────────────┘
+
+  Body (raw JSON):
+  {
+    "raw_text": "paste the raw_text from stage1 here",
+    "stage2_backend": "groq/meta-llama/llama-4-scout-17b-16e-instruct",
+    "prompt_lang": "ar"
+  }
+
+  Expected response:
+  {
+    "document_type": "قرار_انهاء_خدمة",
+    "document_type_label": "قرار انهاء خدمة",
+    "confidence": "high",
+    "category": "admin_orders",
+    "category_label": "...",
+    "field_count": 9
+  }
+
+  ---
+  POST /api/mawrid/pipeline/stage3 — Field extraction only (1 text LLM call)
+
+  ┌───────────┬────────────────────────────────────────────────────────┐
+  │   Field   │                         Value                          │
+  ├───────────┼────────────────────────────────────────────────────────┤
+  │ Method    │ POST                                                   │
+  ├───────────┼────────────────────────────────────────────────────────┤
+  │ URL       │ http://127.0.0.1:8000/api/mawrid/pipeline/stage3       │
+  ├───────────┼────────────────────────────────────────────────────────┤
+  │ Body type │ JSON                                                   │
+  └───────────┴────────────────────────────────────────────────────────┘
+
+  Body (raw JSON):
+  {
+    "raw_text": "paste the raw_text from stage1 here",
+    "document_type": "قرار_انهاء_خدمة",
+    "stage3_backend": "groq/meta-llama/llama-4-scout-17b-16e-instruct",
+    "prompt_lang": "ar"
+  }
+
+  Expected response:
+  { "fields": { "رقم_القرار": "2026/70", "تاريخ_القرار": "2026-04-13", ... }, "latency_ms": 3000 }
+
+  ---
+  POST /api/mawrid/saved — Save a document to DB
+
+  ┌───────────┬──────────────────────────────────────────┐
+  │   Field   │                 Value                     │
+  ├───────────┼──────────────────────────────────────────┤
+  │ Method    │ POST                                      │
+  ├───────────┼──────────────────────────────────────────┤
+  │ URL       │ http://127.0.0.1:8000/api/mawrid/saved    │
+  ├───────────┼──────────────────────────────────────────┤
+  │ Body type │ form-data                                 │
+  └───────────┴──────────────────────────────────────────┘
+
+  Body fields:
+
+  ┌────────────────┬──────┬───────────────────────────────────────────────────────────────────────────────────────┐
+  │      Key         │ Type │                                         Value                                         │
+  ├────────────────┼──────┼───────────────────────────────────────────────────────────────────────────────────────┤
+  │ file            │ File │ any PDF/image                                                                         │
+  ├────────────────┼──────┼───────────────────────────────────────────────────────────────────────────────────────┤
+  │ category        │ Text │ personal_documents                                                                    │
+  ├────────────────┼──────┼───────────────────────────────────────────────────────────────────────────────────────┤
+  │ category_label  │ Text │ الأوراق الثبوتية والشخصية                                                             │
+  ├────────────────┼──────┼───────────────────────────────────────────────────────────────────────────────────────┤
+  │ doc_type        │ Text │ شهادة_ميلاد                                                                           │
+  ├────────────────┼──────┼───────────────────────────────────────────────────────────────────────────────────────┤
+  │ doc_type_label  │ Text │ شهادة ميلاد                                                                           │
+  ├────────────────┼──────┼───────────────────────────────────────────────────────────────────────────────────────┤
+  │ confidence      │ Text │ 0.9                                                                                    │
+  ├────────────────┼──────┼───────────────────────────────────────────────────────────────────────────────────────┤
+  │ fields_json     │ Text │ [{"field_id":"الاسم","label_ar":"الاسم الكامل","value":"محمد                          │
+  │                 │      │ أحمد","confidence":0.95}]                                                             │
+  └────────────────┴──────┴───────────────────────────────────────────────────────────────────────────────────────┘
+
+  Expected: 201 response with the saved record.
+
+  (Note: this endpoint is broken in the Laravel API — the route is declared
+  but the controller method was never implemented. It works here.)
+
+  ---
+  GET /api/mawrid/saved — List saved documents
+
+  ┌────────┬──────────────────────────────────────────┐
+  │ Field  │                 Value                     │
+  ├────────┼──────────────────────────────────────────┤
+  │ Method │ GET                                       │
+  ├────────┼──────────────────────────────────────────┤
+  │ URL    │ http://127.0.0.1:8000/api/mawrid/saved    │
+  └────────┴──────────────────────────────────────────┘
+
+  Optional query params: ?limit=10&offset=0
+
+  ---
+  GET /api/mawrid/saved/{id}/file — Download original file
+
+  Take the id from the previous response and paste it:
+
+  ┌────────┬─────────────────────────────────────────────────────────────┐
+  │ Field  │                            Value                            │
+  ├────────┼─────────────────────────────────────────────────────────────┤
+  │ Method │ GET                                                         │
+  ├────────┼─────────────────────────────────────────────────────────────┤
+  │ URL    │ http://127.0.0.1:8000/api/mawrid/saved/PASTE-UUID-HERE/file │
+  └────────┴─────────────────────────────────────────────────────────────┘
+
+  Should trigger a file download.
+
+  ---
+  DELETE /api/mawrid/saved/{id} — Delete a document
+
+  ┌────────┬────────────────────────────────────────────────────────┐
+  │ Field  │                         Value                          │
+  ├────────┼────────────────────────────────────────────────────────┤
+  │ Method │ DELETE                                                 │
+  ├────────┼────────────────────────────────────────────────────────┤
+  │ URL    │ http://127.0.0.1:8000/api/mawrid/saved/PASTE-UUID-HERE │
+  └────────┴────────────────────────────────────────────────────────┘
+
+  Expected: 204 No Content (empty body — that's correct).
+
+  ---
+  POST /api/mawrid/test/pdf-processor — DEV: Test PDF/image processing (no LLM call)
+
+  ┌───────────┬──────────────────────────────────────────────────────────────┐
+  │   Field   │                            Value                             │
+  ├───────────┼──────────────────────────────────────────────────────────────┤
+  │ Method    │ POST                                                         │
+  ├───────────┼──────────────────────────────────────────────────────────────┤
+  │ URL       │ http://127.0.0.1:8000/api/mawrid/test/pdf-processor          │
+  ├───────────┼──────────────────────────────────────────────────────────────┤
+  │ Body type │ form-data                                                    │
+  └───────────┴──────────────────────────────────────────────────────────────┘
+
+  Body fields:
+
+  ┌──────┬──────┬──────────────────────────────────────┐
+  │ Key  │ Type │                Value                  │
+  ├──────┼──────┼──────────────────────────────────────┤
+  │ file │ File │ any PDF or image (jpg/png/webp/pdf)   │
+  └──────┴──────┴──────────────────────────────────────┘
+
+  Expected response:
+  {
+    "pages_count": 2,
+    "pages": [
+      { "page": 1, "size_kb": 142.3 },
+      { "page": 2, "size_kb": 138.7 }
+    ],
+    "first_page": "base64encodedstring..."
+  }
+
+  To verify the image visually: copy the first_page value and paste it at
+  https://base64.guru/converter/decode/image
+
+  ---
+  Step 2 — What to Look For if Something Goes Wrong
+
+  If you get an error, check the terminal running uvicorn (it prints the
+  full Python traceback for anything not already caught).
+
+  Common issues:
+  - 422 with {"error":"validation_failed", ...} → wrong field name, missing
+    required field, or invalid JSON body
+  - 400 with "No API key for groq" → the matching *_API_KEY isn't set in .env
+  - 502 with "Invalid API Key" → the key is set but wrong/expired — check
+    the provider dashboard
+  - 502 "model not found" / similar → the model name is wrong for that provider
+  - Pipeline timeout → increase your client's timeout or try a smaller file
+
+  Note: all errors under /api/mawrid/* come back shaped like Laravel's —
+  {"error": "validation_failed"|"server_error", "message": "..."} — so any
+  error-handling logic you already wrote against the Laravel API works
+  unchanged here.
+
+  ---
+  Extra: the native Python API (not in the Laravel version)
+
+  Everything above also exists under the original Python route names, with
+  slightly different defaults/behavior (used by the React frontend):
+
+  GET    /health
+  GET    /api/schema
+  POST   /api/schema/upload        (upload a custom schema, get a token back)
+  POST   /api/two-stage/run        (same as pipeline/run, form-data, all 3 stages)
+  POST   /api/saved
+  GET    /api/saved
+  GET    /api/saved/{id}/file
+  DELETE /api/saved/{id}
+
+  You generally don't need these if you're just testing feature parity with
+  the Laravel collection — use the /api/mawrid/* routes above for that.

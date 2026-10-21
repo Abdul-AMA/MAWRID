@@ -31,7 +31,7 @@ def run_sync(file_bytes: bytes, backend: str, api_key: str, lang: str = "ar") ->
     Returns:
         { raw_text, page_images, model, latency_ms, input_tokens, output_tokens }
     """
-    jpeg_pages = _to_jpeg_pages(file_bytes)
+    jpeg_pages = to_pages(file_bytes)
     prompt     = build_stage1_prompt_en() if lang in ("en", "en-ocr") else build_stage1_prompt()
     raw        = _dispatch(jpeg_pages, prompt, backend, api_key)
     raw_text   = _parse_ocr_response(raw["text"])
@@ -92,7 +92,8 @@ def _parse_response(text: str) -> dict:
 _MAX_WIDTH = 600
 
 
-def _to_jpeg_pages(file_bytes: bytes) -> list[bytes]:
+def to_pages(file_bytes: bytes) -> list[bytes]:
+    """Convert a PDF or image upload into one preprocessed JPEG per page."""
     from PIL import Image as PILImage, ImageEnhance
 
     def _preprocess(img):
